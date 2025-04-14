@@ -64,6 +64,10 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
 
     playlist_response = response.json()
     print("🧪 Spotify create playlist response:", playlist_response)
+    if "error" in playlist_response:
+        print("❌ Spotify playlist creation failed:", playlist_response["error"])
+        raise Exception(f"Spotify error: {playlist_response['error']['message']}")
+
     playlist_id = playlist_response["id"]
 
     # Prepare list of matched URIs and track names
