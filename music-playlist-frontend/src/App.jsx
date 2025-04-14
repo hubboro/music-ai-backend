@@ -68,11 +68,11 @@ function App() {
         {accessToken && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block font-medium">Prompt</label>
+              <label className="block font-medium">What story should your playlist tell?</label>
               <input
                 className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
                 type="text"
-                placeholder="e.g. songs about butterflies"
+                placeholder="e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 required
