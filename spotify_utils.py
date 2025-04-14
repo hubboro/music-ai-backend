@@ -43,6 +43,7 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
     # Get user ID
     profile = requests.get("https://api.spotify.com/v1/me", headers=headers).json()
     user_id = profile["id"]
+    print("🎧 Creating playlist for user_id:", user_id)
 
     # Generate playlist name and description
     playlist_title = f"{prompt.title()}" if len(prompt) <= 50 else "AI-Generated Playlist"
