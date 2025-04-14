@@ -1,4 +1,3 @@
-// App.jsx
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -48,11 +47,10 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] p-4 font-sans">
+    <div className="min-h-screen bg-[#f3f4f6] py-10 px-4 font-sans">
       <div className="max-w-xl mx-auto bg-white shadow-md rounded-2xl p-6">
         <div className="flex flex-col items-center justify-center text-center mb-6">
-          <span className="text-5xl mb-2">🦋</span>
-          <h1 className="text-4xl font-extrabold text-[#a7b89c]">Butterfly</h1>
+          <img src="/butterfly-logo.png" alt="Butterfly Logo" className="w-40 h-40 mb-2" />
           <p className="text-sm text-gray-500 italic">Butterfly will turn your thoughts into playlists.</p>
         </div>
 
@@ -68,10 +66,9 @@ function App() {
         {accessToken && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block font-medium">What story should your playlist tell?</label>
-              <input
-                className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1"
-                type="text"
+              <label className="block text-lg font-semibold text-gray-700">What story should your playlist tell?</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-md px-3 py-4 mt-1 h-24 resize-none align-top"
                 placeholder="e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
