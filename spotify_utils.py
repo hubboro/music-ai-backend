@@ -62,6 +62,7 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
     )
 
     playlist_response = response.json()
+    print("🧪 Spotify create playlist response:", playlist_response)
     playlist_id = playlist_response["id"]
 
     # Prepare list of matched URIs and track names
