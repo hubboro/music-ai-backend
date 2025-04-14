@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: butterfly-backend
+    env: python
+    buildCommand: ""
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: OPENAI_API_KEY
+        value: your-openai-key-here
+      - key: SPOTIFY_CLIENT_ID
+        value: your-spotify-client-id
+      - key: SPOTIFY_CLIENT_SECRET
+        value: your-spotify-client-secret
+      - key: SPOTIFY_REDIRECT_URI
+        value: https://butterfly-backend.onrender.com/callback
