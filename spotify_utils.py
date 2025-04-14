@@ -34,17 +34,6 @@ def get_token(code: str):
     response = requests.post(TOKEN_URL, data=payload)
     return response.json()
 
-def create_playlist_from_prompt(song_list, access_token):
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-
-    # Get user ID
-    profile = requests.get("https://api.spotify.com/v1/me", headers=headers).json()
-    user_id = profile["id"]
-
-    # Create a new playlist
 def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -59,23 +48,26 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
     playlist_title = f"{prompt.title()}" if len(prompt) <= 50 else "AI-Generated Playlist"
     playlist_description = f"Created with AI based on the prompt: '{prompt}'"
 
-    # Create playlist
+    # Create a new playlist
     playlist_data = {
         "name": playlist_title,
         "description": playlist_description,
         "public": True
     }
 
-    playlist_response = requests.post(
+    response = requests.post(
         f"https://api.spotify.com/v1/users/{user_id}/playlists",
         headers=headers,
         json=playlist_data
-    ).json()
+    )
 
+    playlist_response = response.json()
     playlist_id = playlist_response["id"]
 
-    # Search and add tracks
+    # Prepare list of matched URIs and track names
     uris = []
+    added_songs = []
+
     for song in song_list:
         query = f"{song['title']} {song['artist']}"
         search = requests.get(
@@ -83,10 +75,16 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
             headers=headers,
             params={"q": query, "type": "track", "limit": 1}
         ).json()
+
         items = search.get("tracks", {}).get("items")
         if items:
             uris.append(items[0]["uri"])
+            added_songs.append({
+                "title": song["title"],
+                "artist": song["artist"]
+            })
 
+    # Add tracks to the playlist
     if uris:
         requests.post(
             f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
@@ -94,34 +92,4 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
             json={"uris": uris}
         )
 
-    return playlist_response["external_urls"]["spotify"]
-    playlist_response = requests.post(
-        f"https://api.spotify.com/v1/users/{user_id}/playlists",
-        headers=headers,
-        json=playlist_data
-    ).json()
-
-    playlist_id = playlist_response["id"]
-
-    # Search for track URIs
-    uris = []
-    for song in song_list:
-        query = f"{song['title']} {song['artist']}"
-        search = requests.get(
-            f"https://api.spotify.com/v1/search",
-            headers=headers,
-            params={"q": query, "type": "track", "limit": 1}
-        ).json()
-        items = search.get("tracks", {}).get("items")
-        if items:
-            uris.append(items[0]["uri"])
-
-    # Add tracks to playlist
-    if uris:
-        requests.post(
-            f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
-            headers=headers,
-            json={"uris": uris}
-        )
-
-    return playlist_response["external_urls"]["spotify"]
+    return playlist_response["external_urls"]["spotify"], added_songs

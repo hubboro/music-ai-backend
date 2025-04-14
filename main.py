@@ -23,10 +23,20 @@ def login():
     auth_url = get_spotify_auth_url()
     return RedirectResponse(auth_url)
 
+
 @app.get("/callback")
+
+#def callback(code: str):
+#    token_data = get_token(code)
+#    return JSONResponse(token_data)
 def callback(code: str):
     token_data = get_token(code)
-    return JSONResponse(token_data)
+    access_token = token_data.get("access_token")
+    frontend_redirect = f"http://localhost:5173?token={access_token}"
+    return RedirectResponse(frontend_redirect)
+
+
+
 
 @app.post("/generate_playlist")
 async def generate_playlist(request: Request):
@@ -38,9 +48,11 @@ async def generate_playlist(request: Request):
         return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
 
     song_list = get_song_list_from_prompt(prompt)
-    playlist_url = create_playlist_from_prompt(song_list, access_token, prompt)
-
-    return {"playlist_url": playlist_url}
+    playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt)
+    return {
+    "playlist_url": playlist_url,
+    "songs_added": added_songs
+}
 
 
 @app.get("/")
