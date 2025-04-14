@@ -42,6 +42,12 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
 
     # Get user ID
     profile = requests.get("https://api.spotify.com/v1/me", headers=headers).json()
+    print("👤 Spotify user profile response:", profile)
+
+    if "error" in profile:
+        print("❌ Failed to fetch user profile:", profile["error"])
+        raise Exception(f"Spotify auth error: {profile['error']['message']}")
+
     user_id = profile["id"]
     print("🎧 Creating playlist for user_id:", user_id)
 
