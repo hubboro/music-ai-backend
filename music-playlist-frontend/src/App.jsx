@@ -58,7 +58,7 @@ function App() {
 
         {!accessToken && (
           <a
-            href="http://127.0.0.1:8000/login"
+          href={`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/login`}
             className="inline-block bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788] mb-4"
           >
             Login with Spotify
