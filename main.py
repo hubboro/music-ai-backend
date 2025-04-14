@@ -32,7 +32,7 @@ def login():
 def callback(code: str):
     token_data = get_token(code)
     access_token = token_data.get("access_token")
-    frontend_redirect = f"http://localhost:5173?token={access_token}"
+    frontend_redirect = f"https://butterfly-music-app.vercel.app?token={access_token}"
     return RedirectResponse(frontend_redirect)
 
 
