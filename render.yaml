@@ -12,4 +12,4 @@ services:
       - key: SPOTIFY_CLIENT_SECRET
         value: your-spotify-client-secret
       - key: SPOTIFY_REDIRECT_URI
-        value: https://butterfly-backend.onrender.com/callback
+        value: https://butterfly-music-app.onrender.com/callback
