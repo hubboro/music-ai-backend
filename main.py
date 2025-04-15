@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 from spotify_utils import get_spotify_auth_url, get_token, create_playlist_from_prompt, refresh_access_token
-from openai_utils import get_song_list_from_prompt
+from openai_utils import generate_playlist_data
 
 load_dotenv()
 
@@ -50,17 +50,20 @@ async def generate_playlist(request: Request):
         if not prompt or not access_token:
             return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
 
-        song_list = get_song_list_from_prompt(prompt)
+        result = generate_playlist_data(prompt)
+        playlist_name = result.get("playlist_name", "Butterfly Playlist")
+        song_list = result.get("songs", [])
         print("🎼 Song list generated:", song_list)
+        print("📛 Playlist name:", playlist_name)
 
         try:
-            playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
+            playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token)
         except Exception as e:
             if ("access token expired" in str(e).lower() or "401" in str(e)) and refresh_token:
                 print("🔁 Token expired. Attempting refresh...")
                 new_access_token = refresh_access_token(refresh_token)
                 access_token = new_access_token
-                playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
+                playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token)
             else:
                 raise e
 
@@ -68,6 +71,7 @@ async def generate_playlist(request: Request):
 
         return {
             "playlist_url": playlist_url,
+            "playlist_name": playlist_name,
             "songs_added": added_songs
         }
 
