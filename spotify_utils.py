@@ -36,7 +36,7 @@ def get_token(code: str):
     response = requests.post(TOKEN_URL, data=payload)
     return response.json()
 
-def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
+def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist", refresh_token=None):
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
