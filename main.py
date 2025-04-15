@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from spotify_utils import get_spotify_auth_url, get_token, create_playlist_from_prompt, refresh_access_token
 from openai_utils import generate_playlist_data
+import re
 
 load_dotenv()
 
@@ -51,19 +52,21 @@ async def generate_playlist(request: Request):
             return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
 
         result = generate_playlist_data(prompt)
+        raw_description = result.get("description", prompt or "")
+        playlist_description = re.sub(r"[^\w\s.,!?'\"]", '', raw_description.strip()[:50])
         playlist_name = result.get("name", "Butterfly Playlist")
         song_list = result.get("songs", [])
         print("🎼 Song list generated:", song_list)
         print("📛 Playlist name:", playlist_name)
 
         try:
-            playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token)
+            playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token, playlist_description)
         except Exception as e:
             if ("access token expired" in str(e).lower() or "401" in str(e)) and refresh_token:
                 print("🔁 Token expired. Attempting refresh...")
                 new_access_token = refresh_access_token(refresh_token)
                 access_token = new_access_token
-                playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token)
+                playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token, playlist_description)
             else:
                 raise e
 
