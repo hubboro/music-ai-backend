@@ -49,7 +49,7 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
         raise Exception(f"Spotify auth error: {profile['error']['message']}")
 
     user_id = profile["id"]
-    print("🎧 Creating playlist for user_id:", user_id)
+    print("🎧 Creating playlist for user_id:"git, user_id)
 
     # Generate playlist name and description
     playlist_title = f"{prompt.title()}" if len(prompt) <= 50 else "AI-Generated Playlist"
