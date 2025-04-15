@@ -2,6 +2,7 @@ import os
 import requests
 from urllib.parse import urlencode
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 load_dotenv()
 
@@ -45,15 +46,20 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
     print("👤 Spotify user profile response:", profile)
 
     if "error" in profile:
+        error_message = profile["error"]["message"]
         print("❌ Failed to fetch user profile:", profile["error"])
-        raise Exception(f"Spotify auth error: {profile['error']['message']}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Spotify auth error: {error_message}"
+        )
 
     user_id = profile["id"]
     print("🎧 Creating playlist for user_id:", user_id)
 
     # Generate playlist name and description
-    playlist_title = f"{prompt.title()}" if len(prompt) <= 50 else "AI-Generated Playlist"
-    playlist_description = f"Created with AI based on the prompt: '{prompt}'"
+    safe_title = prompt.strip().title()[:50]
+    playlist_title = safe_title if safe_title else "AI-Generated Playlist"
+    playlist_description = f"Created with AI based on the prompt: '{prompt}'".encode('utf-8', errors='ignore').decode()
 
     # Create a new playlist
     playlist_data = {
@@ -61,6 +67,8 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
         "description": playlist_description,
         "public": True
     }
+
+    print("📦 Sending playlist data to Spotify:", playlist_data)
 
     response = requests.post(
         f"https://api.spotify.com/v1/users/{user_id}/playlists",
