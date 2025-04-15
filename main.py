@@ -15,7 +15,7 @@ app.add_middleware(
     allow_origins=[
     "https://butterfly-music-app.vercel.app",
     "http://localhost:5173"
-],
+                    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,22 +40,33 @@ def callback(code: str):
 
 
 
-
 @app.post("/generate_playlist")
 async def generate_playlist(request: Request):
-    body = await request.json()
-    prompt = body.get("prompt")
-    access_token = body.get("access_token")
+    try:
+        body = await request.json()
+        prompt = body.get("prompt")
+        access_token = body.get("access_token")
 
-    if not prompt or not access_token:
-        return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
+        print("🎯 Received prompt:", prompt)
+        print("🔑 Access token present:", bool(access_token))
 
-    song_list = get_song_list_from_prompt(prompt)
-    playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt)
-    return {
-    "playlist_url": playlist_url,
-    "songs_added": added_songs
-}
+        if not prompt or not access_token:
+            return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
+
+        song_list = get_song_list_from_prompt(prompt)
+        print("🎼 Song list generated:", song_list)
+
+        playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt)
+        print("✅ Playlist created:", playlist_url)
+
+        return {
+            "playlist_url": playlist_url,
+            "songs_added": added_songs
+        }
+
+    except Exception as e:
+        print("🔥 Exception during playlist generation:", str(e))
+        return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 
 @app.get("/")
