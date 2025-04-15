@@ -28,16 +28,12 @@ def login():
 
 
 @app.get("/callback")
-
-#def callback(code: str):
-#    token_data = get_token(code)
-#    return JSONResponse(token_data)
 def callback(code: str):
     token_data = get_token(code)
     access_token = token_data.get("access_token")
-    frontend_redirect = f"https://butterfly-music-app.vercel.app?token={access_token}"
+    refresh_token = token_data.get("refresh_token")
+    frontend_redirect = f"https://butterfly-music-app.vercel.app?token={access_token}&refresh_token={refresh_token}"
     return RedirectResponse(frontend_redirect)
-
 
 
 @app.post("/generate_playlist")
@@ -46,6 +42,7 @@ async def generate_playlist(request: Request):
         body = await request.json()
         prompt = body.get("prompt")
         access_token = body.get("access_token")
+        refresh_token = body.get("refresh_token")
 
         print("🎯 Received prompt:", prompt)
         print("🔑 Access token present:", bool(access_token))
@@ -56,7 +53,7 @@ async def generate_playlist(request: Request):
         song_list = get_song_list_from_prompt(prompt)
         print("🎼 Song list generated:", song_list)
 
-        playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt)
+        playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
         print("✅ Playlist created:", playlist_url)
 
         return {
