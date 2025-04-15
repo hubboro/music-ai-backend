@@ -53,7 +53,18 @@ async def generate_playlist(request: Request):
         song_list = get_song_list_from_prompt(prompt)
         print("🎼 Song list generated:", song_list)
 
-        playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
+        try:
+            playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
+        except Exception as e:
+            if "access token expired" in str(e).lower() and refresh_token:
+                print("🔁 Token expired. Attempting refresh...")
+                from spotify_utils import refresh_access_token
+                new_access_token = refresh_access_token(refresh_token)
+                access_token = new_access_token
+                playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
+            else:
+                raise e
+
         print("✅ Playlist created:", playlist_url)
 
         return {
