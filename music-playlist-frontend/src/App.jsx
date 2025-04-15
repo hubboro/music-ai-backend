@@ -40,7 +40,16 @@ function App() {
       setSongs(res.data.songs_added);
     } catch (err) {
       console.error(err);
-      setError('Something went wrong. Check the console and try again.');
+      const message = err?.response?.data?.detail || err?.message || '';
+      if (
+        message.toLowerCase().includes('token expired') ||
+        message.toLowerCase().includes('spotify auth error')
+      ) {
+        alert('Your Spotify session expired. Please log in again.');
+        window.location.href = `${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/login`;
+      } else {
+        setError('Something went wrong. Check the console and try again.');
+      }
     } finally {
       setLoading(false);
     }
