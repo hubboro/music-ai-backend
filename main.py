@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
-from spotify_utils import get_spotify_auth_url, get_token, create_playlist_from_prompt
+from spotify_utils import get_spotify_auth_url, get_token, create_playlist_from_prompt, refresh_access_token
 from openai_utils import get_song_list_from_prompt
 
 load_dotenv()
@@ -56,9 +56,8 @@ async def generate_playlist(request: Request):
         try:
             playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)
         except Exception as e:
-            if "access token expired" in str(e).lower() and refresh_token:
+            if ("access token expired" in str(e).lower() or "401" in str(e)) and refresh_token:
                 print("🔁 Token expired. Attempting refresh...")
-                from spotify_utils import refresh_access_token
                 new_access_token = refresh_access_token(refresh_token)
                 access_token = new_access_token
                 playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, prompt, refresh_token)

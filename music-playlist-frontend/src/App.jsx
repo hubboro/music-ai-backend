@@ -16,10 +16,20 @@ function App() {
     if (token) {
       setAccessToken(token);
       localStorage.setItem('spotify_access_token', token);
+      localStorage.setItem('spotify_token_timestamp', Date.now().toString());
       window.history.replaceState({}, document.title, '/');
     } else {
       const savedToken = localStorage.getItem('spotify_access_token');
-      if (savedToken) setAccessToken(savedToken);
+      const tokenTimestamp = parseInt(localStorage.getItem('spotify_token_timestamp') || '0', 10);
+      const tokenAge = Date.now() - tokenTimestamp;
+
+      // If token is older than 55 minutes (Spotify tokens expire in 60 minutes), clear it
+      if (tokenAge > 5 * 60 * 1000) {
+        localStorage.removeItem('spotify_access_token');
+        localStorage.removeItem('spotify_token_timestamp');
+      } else if (savedToken) {
+        setAccessToken(savedToken);
+      }
     }
   }, []);
 
