@@ -36,7 +36,7 @@ def get_token(code: str):
     response = requests.post(TOKEN_URL, data=payload)
     return response.json()
 
-def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist", refresh_token=None):
+def create_playlist_from_prompt(song_list, access_token, playlist_name, prompt="AI Playlist", refresh_token=None):
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
@@ -58,7 +58,7 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist", r
     print("🎧 Creating playlist for user_id:", user_id)
 
     # Generate playlist name and description
-    playlist_title = "Butterfly Playlist"
+    playlist_title = playlist_name or "Butterfly Playlist"
     clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt).replace("\n", " ").strip()
     playlist_description = f"{clean_prompt[:30]}..."
 
