@@ -58,10 +58,9 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
     print("🎧 Creating playlist for user_id:", user_id)
 
     # Generate playlist name and description
-    safe_title = prompt.strip().title()[:50]
-    playlist_title = safe_title if safe_title else "Butterfly Playlist"
-    clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt)
-    playlist_description = f"Q: '{clean_prompt}'"
+    playlist_title = "Butterfly Playlist"
+    clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt).replace("\n", " ").strip()
+    playlist_description = f"{clean_prompt[:30]}..."
 
     # Create a new playlist
     playlist_data = {
