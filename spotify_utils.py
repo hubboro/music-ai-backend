@@ -114,3 +114,24 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
         )
 
     return playlist_response["external_urls"]["spotify"], added_songs
+
+def refresh_access_token(refresh_token: str):
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET
+    }
+
+    response = requests.post(TOKEN_URL, data=payload)
+    refreshed_token_data = response.json()
+
+    if "error" in refreshed_token_data:
+        print("❌ Failed to refresh access token:", refreshed_token_data["error"])
+        raise HTTPException(
+            status_code=401,
+            detail=f"Spotify token refresh error: {refreshed_token_data['error']['message']}"
+        )
+
+    print("🔄 Refreshed Spotify token:", refreshed_token_data)
+    return refreshed_token_data
