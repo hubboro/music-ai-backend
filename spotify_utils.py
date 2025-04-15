@@ -3,6 +3,7 @@ import requests
 from urllib.parse import urlencode
 from dotenv import load_dotenv
 from fastapi import HTTPException
+import re
 
 load_dotenv()
 
@@ -58,8 +59,9 @@ def create_playlist_from_prompt(song_list, access_token, prompt="AI Playlist"):
 
     # Generate playlist name and description
     safe_title = prompt.strip().title()[:50]
-    playlist_title = safe_title if safe_title else "AI-Generated Playlist"
-    playlist_description = f"Created with AI based on the prompt: '{prompt}'".encode('utf-8', errors='ignore').decode()
+    playlist_title = safe_title if safe_title else "Butterfly Playlist"
+    clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt)
+    playlist_description = f"Q: '{clean_prompt}'"
 
     # Create a new playlist
     playlist_data = {
