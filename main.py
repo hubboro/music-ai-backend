@@ -52,11 +52,15 @@ async def generate_playlist(request: Request):
             return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
 
         result = generate_playlist_data(prompt)
-        playlist_description = f"Butterfly generated: {prompt[:30]}"
         playlist_name = result.get("name", "Butterfly Playlist")
         song_list = result.get("songs", [])
+
+        clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt or "").replace("\n", " ").strip()
+        playlist_description = f"Butterfly generated: {clean_prompt[:30]}" or "Butterfly generated: a musical vibe"
+
         print("🎼 Song list generated:", song_list)
         print("📛 Playlist name:", playlist_name)
+        print("📛 Playlist description:", playlist_description)
 
         try:
             playlist_url, added_songs = create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token, playlist_description)
