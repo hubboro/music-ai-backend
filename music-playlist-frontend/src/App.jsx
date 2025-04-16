@@ -113,9 +113,9 @@ function App() {
             <h2 className="text-2xl font-bold text-gray-800 mb-4">{playlistName || "Your Playlist"}</h2>
             <ul className="mt-2 list-disc list-inside">
               {songs.map((song, idx) => (
-                <li key={idx}>
-                  <span className="font-semibold text-gray-700">{song.title}</span>{' '}
-                  <span className="text-gray-500 italic">– {song.artist}</span>
+                <li key={idx} className="mb-2">
+                  <div className="text-lg font-semibold text-gray-900">{song.title}</div>
+                  <div className="text-sm text-gray-500">{song.artist}</div>
                 </li>
               ))}
             </ul>
