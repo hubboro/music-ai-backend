@@ -9,6 +9,7 @@ function App() {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [placeholders, setPlaceholders] = useState([]);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -25,13 +26,21 @@ function App() {
       const tokenAge = Date.now() - tokenTimestamp;
 
       // If token is older than 55 minutes (Spotify tokens expire in 60 minutes), clear it
-      if (tokenAge > 5 * 60 * 1000) {
+      if (tokenAge > 10 * 60 * 1000) {
         localStorage.removeItem('spotify_access_token');
         localStorage.removeItem('spotify_token_timestamp');
       } else if (savedToken) {
         setAccessToken(savedToken);
       }
     }
+
+    axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/prompt_placeholders`)
+      .then(res => {
+        setPlaceholders(res.data.placeholders || []);
+      })
+      .catch(err => {
+        console.error('Failed to fetch prompt placeholders:', err);
+      });
   }, []);
 
   const handleSubmit = async (e) => {
@@ -90,7 +99,7 @@ function App() {
               <label className="block text-lg font-semibold text-gray-700">What story should your playlist tell?</label>
               <textarea
                 className="w-full border border-gray-300 rounded-md px-3 py-4 mt-1 h-24 resize-none align-top"
-                placeholder="e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass"
+                placeholder={placeholders.length > 0 ? placeholders[Math.floor(Math.random() * placeholders.length)] : 'e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass'}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 required
