@@ -43,9 +43,9 @@ def generate_playlist_data(prompt: str):
 def generate_prompt_placeholders():
     system_prompt = "You are a creative assistant helping users write inspiring playlist prompts. Your job is to come up with fun, vivid, and inspiring prompts that help users describe the vibe or theme of a playlist they want to generate."
     user_prompt = (
-        "Give me 2 unique and descriptive playlist prompt examples that help inspire users. "
-        "Each one should describe a different theme, mood, or idea, music genre or artist. They should not be generic. "
-        "Avoid repetition. Each should be one sentence."
+        "Give me a unique and descriptive playlist prompt examples that help inspire users. "
+        "It should describe a different theme, mood, or idea, music genre or artist. It should not be generic. "
+        "It should be one sentence, no longer than 12 words."
     )
 
     try:
@@ -60,8 +60,7 @@ def generate_prompt_placeholders():
 
         content = response.choices[0].message.content.strip()
         placeholders = [line.strip("-• ") for line in content.split("\n") if line.strip()]
-        return placeholders[:2]  # Only return first two non-empty lines
+        return placeholders[:1]  # Only return first one non-empty line
     except Exception as e:
         print("🔥 Error fetching placeholders from OpenAI:", str(e))
         return ["A sunrise rave on Mars", "Lo-fi jazz in a post-apocalyptic café"]
-    
