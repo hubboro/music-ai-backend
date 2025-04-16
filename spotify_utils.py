@@ -59,12 +59,12 @@ def create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_
 
     # Generate playlist name and description
     playlist_title = playlist_name if isinstance(playlist_name, str) and playlist_name.strip() else "Butterfly Playlist"
-
+    description_clean = playlist_description or "Butterfly generated: a musical vibe"
     # Create a new playlist
     playlist_data = {
         "name": playlist_title,
-        "description": playlist_description,
-        "public": False
+        "description": description_clean,
+        "public": True
     }
 
     print("📦 Sending playlist data to Spotify:", playlist_data)
