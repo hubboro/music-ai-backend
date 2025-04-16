@@ -56,7 +56,7 @@ async def generate_playlist(request: Request):
         song_list = result.get("songs", [])
 
         clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt or "").replace("\n", " ").strip()
-        playlist_description = f"Butterfly generated: {clean_prompt[:30]}" or "Butterfly generated: a musical vibe"
+        playlist_description = f"Butterfly generated: {clean_prompt[:120]}" or "Butterfly generated: a musical vibe"
 
         print("🎼 Song list generated:", song_list)
         print("📛 Playlist name:", playlist_name)
