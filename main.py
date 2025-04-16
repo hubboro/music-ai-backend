@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 from spotify_utils import get_spotify_auth_url, get_token, create_playlist_from_prompt, refresh_access_token
-from openai_utils import generate_playlist_data
+from openai_utils import generate_playlist_data, generate_prompt_placeholders
+
 import re
 
 load_dotenv()
@@ -89,3 +90,12 @@ async def generate_playlist(request: Request):
 @app.get("/")
 def root():
     return {"message": "FastAPI backend for AI + Spotify is running 🎵"}
+
+@app.get("/prompt_placeholders")
+def get_prompt_placeholders():
+    try:
+        placeholders = generate_prompt_placeholders()
+        return {"placeholders": placeholders}
+    except Exception as e:
+        print("🔥 Exception while fetching placeholders:", str(e))
+        return JSONResponse({"error": "Failed to generate placeholders", "details": str(e)}, status_code=500)

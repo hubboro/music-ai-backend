@@ -39,3 +39,29 @@ def generate_playlist_data(prompt: str):
     except Exception as e:
         print("❌ Error parsing OpenAI JSON:", e)
         return {"name": "Untitled Playlist", "songs": []}
+    
+def generate_prompt_placeholders():
+    system_prompt = "You are a creative assistant helping users write inspiring playlist prompts. Your job is to come up with fun, vivid, and inspiring prompts that help users describe the vibe or theme of a playlist they want to generate."
+    user_prompt = (
+        "Give me 2 unique and descriptive playlist prompt examples that help inspire users. "
+        "Each one should describe a different theme, mood, or idea, music genre or artist. They should not be generic. "
+        "Avoid repetition. Each should be one sentence."
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4.1-nano-2025-04-14",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.9
+        )
+
+        content = response.choices[0].message.content.strip()
+        placeholders = [line.strip("-• ") for line in content.split("\n") if line.strip()]
+        return placeholders[:2]  # Only return first two non-empty lines
+    except Exception as e:
+        print("🔥 Error fetching placeholders from OpenAI:", str(e))
+        return ["A sunrise rave on Mars", "Lo-fi jazz in a post-apocalyptic café"]
+    
