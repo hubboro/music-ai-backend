@@ -5,6 +5,7 @@ function App() {
   const [prompt, setPrompt] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [playlistUrl, setPlaylistUrl] = useState('');
+  const [playlistName, setPlaylistName] = useState('');
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +49,7 @@ function App() {
 
       setPlaylistUrl(res.data.playlist_url);
       setSongs(res.data.songs_added);
+      setPlaylistName(res.data.playlist_name);
     } catch (err) {
       console.error(err);
       const message = err?.response?.data?.detail || err?.message || '';
@@ -108,15 +110,23 @@ function App() {
 
         {playlistUrl && (
           <div className="mt-6">
-            <h2 className="text-xl font-semibold">Your Playlist</h2>
-            <a href={playlistUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-              Open in Spotify
-            </a>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">{playlistName || "Your Playlist"}</h2>
             <ul className="mt-2 list-disc list-inside">
               {songs.map((song, idx) => (
-                <li key={idx}>{song.title} – {song.artist}</li>
+                <li key={idx}>
+                  <span className="font-semibold text-gray-700">{song.title}</span>{' '}
+                  <span className="text-gray-500 italic">– {song.artist}</span>
+                </li>
               ))}
             </ul>
+            <a
+              href={playlistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-4 bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788]"
+            >
+              Open in Spotify
+            </a>
           </div>
         )}
       </div>
