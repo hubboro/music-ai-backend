@@ -85,12 +85,17 @@ function App() {
         </div>
 
         {!accessToken && (
-          <a
-          href={`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/login`}
-            className="inline-block bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788] mb-4"
-          >
-            Login with Spotify
-          </a>
+          <div className="flex flex-col items-center mb-4">
+            <a
+              href={`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/login`}
+              className="inline-block bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788] mb-2"
+            >
+              Login with Spotify
+            </a>
+            <p className="text-xs text-gray-400 mt-1 text-center max-w-xs">
+              Be aware - we will create a public playlist on your Spotify account
+            </p>
+          </div>
         )}
 
         {accessToken && (
