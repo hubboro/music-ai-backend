@@ -120,14 +120,14 @@ function App() {
         {playlistUrl && (
           <div className="mt-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">{playlistName || "Your Playlist"}</h2>
-            <ul className="mt-2 list-disc list-inside">
+            <ol className="mt-4 space-y-2 list-decimal list-inside text-left">
               {songs.map((song, idx) => (
-                <li key={idx} className="mb-2">
-                  <div className="text-lg font-semibold text-gray-900">{song.title}</div>
-                  <div className="text-sm text-gray-500">{song.artist}</div>
+                <li key={idx}>
+                  <span className="text-lg font-semibold text-gray-900">{song.title}</span>{' '}
+                  <span className="text-sm text-gray-500">{song.artist}</span>
                 </li>
               ))}
-            </ul>
+            </ol>
             <a
               href={playlistUrl}
               target="_blank"
