@@ -98,6 +98,7 @@ def create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_
         items = search.get("tracks", {}).get("items")
         if items:
             uris.append(items[0]["uri"])
+            print(f"✅ Matched on Spotify: {items[0]['name']} – {items[0]['artists'][0]['name']}")
             added_songs.append({
                 "title": song["title"],
                 "artist": song["artist"]
