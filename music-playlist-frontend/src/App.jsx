@@ -93,7 +93,7 @@ function App() {
               Login with Spotify
             </a>
             <p className="text-xs text-gray-400 mt-1 text-center max-w-xs">
-              Be aware - we will create a public playlist on your Spotify account
+              be aware - we will create a public playlist on your Spotify account
             </p>
           </div>
         )}
