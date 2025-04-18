@@ -103,10 +103,15 @@ function App() {
             <div>
               <label className="block text-lg font-semibold text-gray-700">What story should your playlist tell?</label>
               <textarea
-                className="w-full border border-gray-300 rounded-md px-3 py-4 mt-1 h-24 resize-none align-top"
+                className="w-full border border-gray-300 rounded-md px-3 py-4 mt-1 resize-none align-top text-base"
                 placeholder={placeholders.length > 0 ? placeholders[Math.floor(Math.random() * placeholders.length)] : 'e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass'}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                rows={2}
                 required
               />
             </div>
