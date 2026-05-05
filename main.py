@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import re
 from dotenv import load_dotenv
-from spotify_utils import get_spotify_auth_url, get_token, create_playlist_from_prompt, refresh_access_token
+from spotify_utils import get_spotify_auth_url, get_token, get_app_access_token, create_playlist_from_prompt, refresh_access_token
 from openai_utils import generate_playlist_data, generate_prompt_placeholders
 
 load_dotenv()
@@ -17,10 +17,13 @@ app = FastAPI()
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+FRONTEND_URL = "https://butterfly-music-app.vercel.app"
+BACKEND_URL = os.getenv("BACKEND_URL", "https://butterfly-backend.onrender.com")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://butterfly-music-app.vercel.app",
+        FRONTEND_URL,
         "http://localhost:5173"
     ],
     allow_credentials=True,
@@ -37,7 +40,33 @@ def callback(code: str):
     token_data = get_token(code)
     access_token = token_data.get("access_token")
     refresh_token = token_data.get("refresh_token")
-    return RedirectResponse(f"https://butterfly-music-app.vercel.app?token={access_token}&refresh_token={refresh_token}")
+    return RedirectResponse(f"{FRONTEND_URL}?token={access_token}&refresh_token={refresh_token}")
+
+# One-time setup: visit /app_login to authorise the app account, then copy the
+# refresh_token from /app_callback and set it as APP_SPOTIFY_REFRESH_TOKEN on Render.
+@app.get("/app_login")
+def app_login():
+    redirect_uri = f"{BACKEND_URL}/app_callback"
+    return RedirectResponse(get_spotify_auth_url(redirect_uri_override=redirect_uri))
+
+@app.get("/app_callback")
+def app_callback(code: str):
+    redirect_uri = f"{BACKEND_URL}/app_callback"
+    from spotify_utils import get_token as _get_token, TOKEN_URL, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
+    import requests as _requests
+    payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+    }
+    token_data = _requests.post(TOKEN_URL, data=payload).json()
+    return JSONResponse({
+        "message": "Copy the refresh_token below and set it as APP_SPOTIFY_REFRESH_TOKEN in your Render env vars.",
+        "refresh_token": token_data.get("refresh_token"),
+        "access_token": token_data.get("access_token"),
+    })
 
 @app.post("/generate_playlist")
 @limiter.limit("10/minute")
@@ -47,12 +76,16 @@ async def generate_playlist(request: Request):
         prompt = body.get("prompt")
         access_token = body.get("access_token")
         refresh_token = body.get("refresh_token")
+        guest_mode = not access_token
 
         print("🎯 Received prompt:", prompt)
-        print("🔑 Access token present:", bool(access_token))
+        print("🔑 Guest mode:", guest_mode)
 
-        if not prompt or not access_token:
-            return JSONResponse({"error": "Missing prompt or access token"}, status_code=400)
+        if not prompt:
+            return JSONResponse({"error": "Missing prompt"}, status_code=400)
+
+        if guest_mode:
+            access_token = get_app_access_token()
 
         result = generate_playlist_data(prompt)
         playlist_name = result.get("name", "Butterfly Playlist")
@@ -62,13 +95,26 @@ async def generate_playlist(request: Request):
         playlist_description = f"Butterfly generated: {clean_prompt[:120]}" or "Butterfly generated: a musical vibe"
 
         try:
-            playlist_url, added_songs = await create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token, playlist_description)
+            playlist_url, added_songs = await create_playlist_from_prompt(
+                song_list, access_token, playlist_name,
+                refresh_token if not guest_mode else None,
+                playlist_description
+            )
         except Exception as e:
-            if ("access token expired" in str(e).lower() or "401" in str(e)) and refresh_token:
+            if ("access token expired" in str(e).lower() or "401" in str(e)):
                 print("🔁 Token expired. Attempting refresh...")
-                refreshed = refresh_access_token(refresh_token)
-                access_token = refreshed.get("access_token")
-                playlist_url, added_songs = await create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token, playlist_description)
+                if guest_mode:
+                    access_token = get_app_access_token()
+                elif refresh_token:
+                    refreshed = refresh_access_token(refresh_token)
+                    access_token = refreshed.get("access_token")
+                else:
+                    raise e
+                playlist_url, added_songs = await create_playlist_from_prompt(
+                    song_list, access_token, playlist_name,
+                    refresh_token if not guest_mode else None,
+                    playlist_description
+                )
             else:
                 raise e
 
@@ -76,7 +122,8 @@ async def generate_playlist(request: Request):
         return {
             "playlist_url": playlist_url,
             "playlist_name": playlist_name,
-            "songs_added": added_songs
+            "songs_added": added_songs,
+            "guest_mode": guest_mode,
         }
 
     except Exception as e:

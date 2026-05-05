@@ -16,14 +16,22 @@ SCOPE = "playlist-modify-public playlist-modify-private"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 
-def get_spotify_auth_url():
+def get_spotify_auth_url(redirect_uri_override=None):
     query = urlencode({
         "client_id": CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": redirect_uri_override or REDIRECT_URI,
         "scope": SCOPE
     })
     return f"{AUTH_URL}?{query}"
+
+def get_app_access_token():
+    """Get a fresh access token using the stored app account refresh token."""
+    app_refresh_token = os.getenv("APP_SPOTIFY_REFRESH_TOKEN")
+    if not app_refresh_token:
+        raise HTTPException(status_code=503, detail="App Spotify account not configured")
+    refreshed = refresh_access_token(app_refresh_token)
+    return refreshed.get("access_token")
 
 def get_token(code: str):
     payload = {
