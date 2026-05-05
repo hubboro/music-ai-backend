@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
+
 function App() {
+  const [mode, setMode] = useState(null); // null | 'login' | 'guest'
   const [prompt, setPrompt] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
@@ -11,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [placeholders, setPlaceholders] = useState([]);
+  const [guestMode, setGuestMode] = useState(false);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -26,6 +30,7 @@ function App() {
         localStorage.setItem('spotify_refresh_token', rToken);
       }
       window.history.replaceState({}, document.title, '/');
+      setMode('login');
     } else {
       const savedToken = localStorage.getItem('spotify_access_token');
       const savedRefreshToken = localStorage.getItem('spotify_refresh_token');
@@ -39,16 +44,13 @@ function App() {
       } else if (savedToken) {
         setAccessToken(savedToken);
         if (savedRefreshToken) setRefreshToken(savedRefreshToken);
+        setMode('login');
       }
     }
 
-    axios.get(`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/prompt_placeholders`)
-      .then(res => {
-        setPlaceholders(res.data.placeholders || []);
-      })
-      .catch(err => {
-        console.error('Failed to fetch prompt placeholders:', err);
-      });
+    axios.get(`${BACKEND}/prompt_placeholders`)
+      .then(res => setPlaceholders(res.data.placeholders || []))
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e) => {
@@ -59,61 +61,102 @@ function App() {
     setSongs([]);
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/generate_playlist`, {
-        prompt,
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
+      const body = { prompt };
+      if (mode === 'login') {
+        body.access_token = accessToken;
+        body.refresh_token = refreshToken;
+      }
+
+      const res = await axios.post(`${BACKEND}/generate_playlist`, body);
 
       setPlaylistUrl(res.data.playlist_url);
       setSongs(res.data.songs_added);
       setPlaylistName(res.data.playlist_name);
+      setGuestMode(res.data.guest_mode);
     } catch (err) {
-      console.error(err);
       const message = err?.response?.data?.detail || err?.message || '';
       if (
         message.toLowerCase().includes('token expired') ||
         message.toLowerCase().includes('spotify auth error')
       ) {
         alert('Your Spotify session expired. Please log in again.');
-        window.location.href = `${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/login`;
+        setMode(null);
+        setAccessToken('');
+        setRefreshToken('');
+        localStorage.clear();
       } else {
-        setError('Something went wrong. Check the console and try again.');
+        setError('Something went wrong. Please try again.');
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('spotify_access_token');
+    localStorage.removeItem('spotify_refresh_token');
+    localStorage.removeItem('spotify_token_timestamp');
+    setAccessToken('');
+    setRefreshToken('');
+    setMode(null);
+    setPlaylistUrl('');
+    setSongs([]);
+  };
+
+  const placeholder = placeholders.length > 0
+    ? placeholders[Math.floor(Math.random() * placeholders.length)]
+    : 'e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass';
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] py-10 px-4 font-sans">
       <div className="max-w-xl mx-auto bg-white shadow-md rounded-2xl p-6">
+
         <div className="flex flex-col items-center justify-center text-center mb-6">
           <img src="/butterfly-logo.png" alt="Butterfly Logo" className="w-40 h-40 mb-2" />
           <p className="text-sm text-gray-500 italic">Butterfly will turn your thoughts into playlists.</p>
         </div>
 
-        {!accessToken && (
-          <div className="flex flex-col items-center mb-4">
+        {/* Landing — choose a path */}
+        {mode === null && (
+          <div className="flex flex-col items-center gap-3">
             <a
-              href={`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/login`}
-              className="inline-block bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788] mb-2"
+              href={`${BACKEND}/login`}
+              className="w-full text-center bg-[#a7b89c] text-white px-4 py-3 rounded-md hover:bg-[#94a788] font-medium"
             >
               Login with Spotify
             </a>
-            <p className="text-xs text-gray-400 mt-1 text-center max-w-xs">
-              be aware - we will create a public playlist on your Spotify account
+            <p className="text-xs text-gray-400 text-center max-w-xs">
+              Creates the playlist directly in your Spotify library.
+            </p>
+
+            <div className="flex items-center w-full gap-2 my-1">
+              <hr className="flex-1 border-gray-200" />
+              <span className="text-xs text-gray-400">or</span>
+              <hr className="flex-1 border-gray-200" />
+            </div>
+
+            <button
+              onClick={() => setMode('guest')}
+              className="w-full bg-white border border-[#a7b89c] text-[#6b8f5e] px-4 py-3 rounded-md hover:bg-[#f3f4f6] font-medium"
+            >
+              Continue without login
+            </button>
+            <p className="text-xs text-gray-400 text-center max-w-xs">
+              We'll create a public playlist on Butterfly's account — open the link to listen and save it to your library.
             </p>
           </div>
         )}
 
-        {accessToken && (
+        {/* Prompt form */}
+        {mode !== null && !playlistUrl && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-lg font-semibold text-gray-700">What story should your playlist tell?</label>
+              <label className="block text-lg font-semibold text-gray-700">
+                What story should your playlist tell?
+              </label>
               <textarea
                 className="w-full border border-gray-300 rounded-md px-3 py-4 mt-1 resize-none align-top text-base"
-                placeholder={placeholders.length > 0 ? placeholders[Math.floor(Math.random() * placeholders.length)] : 'e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass'}
+                placeholder={placeholder}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onInput={(e) => {
@@ -131,15 +174,30 @@ function App() {
             >
               {loading ? 'Generating...' : 'Generate Playlist'}
             </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full text-xs text-gray-400 hover:text-gray-600 mt-1"
+            >
+              {mode === 'login' ? 'Log out' : 'Back'}
+            </button>
           </form>
         )}
 
         {error && <p className="text-red-600 mt-4">{error}</p>}
 
+        {/* Result */}
         {playlistUrl && (
           <div className="mt-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">{playlistName || "Your Playlist"}</h2>
-            <ol className="mt-4 space-y-2 list-decimal list-inside text-left">
+            <h2 className="text-2xl font-bold text-gray-800 mb-1">{playlistName || 'Your Playlist'}</h2>
+
+            {guestMode && (
+              <p className="text-xs text-gray-400 mb-4">
+                This playlist lives on Butterfly's account — follow it on Spotify to save it to your library.
+              </p>
+            )}
+
+            <ol className="mt-2 space-y-2 list-decimal list-inside text-left">
               {songs.map((song, idx) => (
                 <li key={idx}>
                   <span className="text-lg font-semibold text-gray-900">{song.title}</span>{' '}
@@ -147,14 +205,30 @@ function App() {
                 </li>
               ))}
             </ol>
-            <a
-              href={playlistUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-4 bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788]"
+
+            <div className="flex gap-3 mt-4">
+              <a
+                href={playlistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 text-center bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788]"
+              >
+                Open in Spotify
+              </a>
+              <button
+                onClick={() => { setPlaylistUrl(''); setSongs([]); setPrompt(''); }}
+                className="flex-1 bg-white border border-[#a7b89c] text-[#6b8f5e] px-4 py-2 rounded-md hover:bg-[#f3f4f6]"
+              >
+                Generate another
+              </button>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="w-full text-xs text-gray-400 hover:text-gray-600 mt-3"
             >
-              Open in Spotify
-            </a>
+              {mode === 'login' ? 'Log out' : 'Back to home'}
+            </button>
           </div>
         )}
       </div>
