@@ -12,7 +12,7 @@ load_dotenv()
 app = FastAPI()
 
 FRONTEND_URL = "https://butterfly-music-app.vercel.app"
-BACKEND_URL = os.getenv("BACKEND_URL", "https://butterfly-backend.onrender.com")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://butterfly-music-app.onrender.com")
 
 app.add_middleware(
     CORSMiddleware,
