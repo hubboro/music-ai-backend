@@ -9,7 +9,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_playlist_data(prompt: str):
     response = client.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-4.1-mini",
         messages=[
             {
                 "role": "system",
@@ -50,7 +50,7 @@ def generate_prompt_placeholders():
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4.1-nano-2025-04-14",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
