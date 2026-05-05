@@ -1,9 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 import os
 import re
 from dotenv import load_dotenv
@@ -12,10 +9,7 @@ from openai_utils import generate_playlist_data, generate_prompt_placeholders
 
 load_dotenv()
 
-limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 FRONTEND_URL = "https://butterfly-music-app.vercel.app"
 BACKEND_URL = os.getenv("BACKEND_URL", "https://butterfly-backend.onrender.com")
@@ -69,7 +63,6 @@ def app_callback(code: str):
     })
 
 @app.post("/generate_playlist")
-@limiter.limit("10/minute")
 async def generate_playlist(request: Request):
     try:
         body = await request.json()
@@ -135,8 +128,7 @@ def root():
     return {"message": "FastAPI backend for AI + Spotify is running 🎵"}
 
 @app.get("/prompt_placeholders")
-@limiter.limit("30/minute")
-async def get_prompt_placeholders(request: Request):
+async def get_prompt_placeholders():
     try:
         placeholders = generate_prompt_placeholders()
         return {"placeholders": placeholders}
