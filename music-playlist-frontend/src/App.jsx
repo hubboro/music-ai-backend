@@ -4,7 +4,8 @@ import axios from 'axios';
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
 function App() {
-  const [mode, setMode] = useState(null); // null | 'login' | 'guest'
+  const isTestRoute = window.location.pathname === '/test';
+  const [mode, setMode] = useState(isTestRoute ? null : 'guest'); // null | 'login' | 'guest'
   const [prompt, setPrompt] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
@@ -116,8 +117,8 @@ function App() {
           <p className="text-sm text-gray-500 italic">Butterfly will turn your thoughts into playlists.</p>
         </div>
 
-        {/* Landing — choose a path */}
-        {mode === null && (
+        {/* Landing — choose a path (only on /test) */}
+        {mode === null && isTestRoute && (
           <div className="flex flex-col items-center gap-3">
             <a
               href={`${BACKEND}/login`}
@@ -174,13 +175,15 @@ function App() {
             >
               {loading ? 'Generating...' : 'Generate Playlist'}
             </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full text-xs text-gray-400 hover:text-gray-600 mt-1"
-            >
-              {mode === 'login' ? 'Log out' : 'Back'}
-            </button>
+            {(mode === 'login' || isTestRoute) && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full text-xs text-gray-400 hover:text-gray-600 mt-1"
+              >
+                {mode === 'login' ? 'Log out' : 'Back'}
+              </button>
+            )}
           </form>
         )}
 
