@@ -4,6 +4,7 @@ import axios from 'axios';
 function App() {
   const [prompt, setPrompt] = useState('');
   const [accessToken, setAccessToken] = useState('');
+  const [refreshToken, setRefreshToken] = useState('');
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [playlistName, setPlaylistName] = useState('');
   const [songs, setSongs] = useState([]);
@@ -14,23 +15,30 @@ function App() {
   useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const token = queryParams.get('token');
+    const rToken = queryParams.get('refresh_token');
 
     if (token) {
       setAccessToken(token);
       localStorage.setItem('spotify_access_token', token);
       localStorage.setItem('spotify_token_timestamp', Date.now().toString());
+      if (rToken) {
+        setRefreshToken(rToken);
+        localStorage.setItem('spotify_refresh_token', rToken);
+      }
       window.history.replaceState({}, document.title, '/');
     } else {
       const savedToken = localStorage.getItem('spotify_access_token');
+      const savedRefreshToken = localStorage.getItem('spotify_refresh_token');
       const tokenTimestamp = parseInt(localStorage.getItem('spotify_token_timestamp') || '0', 10);
       const tokenAge = Date.now() - tokenTimestamp;
 
-      // If token is older than 55 minutes (Spotify tokens expire in 60 minutes), clear it
-      if (tokenAge > 10 * 60 * 1000) {
+      if (tokenAge > 55 * 60 * 1000) {
         localStorage.removeItem('spotify_access_token');
+        localStorage.removeItem('spotify_refresh_token');
         localStorage.removeItem('spotify_token_timestamp');
       } else if (savedToken) {
         setAccessToken(savedToken);
+        if (savedRefreshToken) setRefreshToken(savedRefreshToken);
       }
     }
 
@@ -53,7 +61,8 @@ function App() {
     try {
       const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/generate_playlist`, {
         prompt,
-        access_token: accessToken
+        access_token: accessToken,
+        refresh_token: refreshToken
       });
 
       setPlaylistUrl(res.data.playlist_url);
