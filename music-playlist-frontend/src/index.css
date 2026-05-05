@@ -5,7 +5,7 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background: linear-gradient(135deg, #e8d5f5 0%, #f3e8ff 40%, #fde8e8 100%);
+    background: linear-gradient(145deg, #e8eee5 0%, #f4f0e8 60%, #faf8f3 100%);
     min-height: 100vh;
   }
 }

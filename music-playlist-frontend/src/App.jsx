@@ -106,17 +106,16 @@ function App() {
     : 'e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass';
 
   return (
-    <div className="min-h-screen py-10 px-4 font-body">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen py-12 px-4 font-body flex items-start justify-center">
+      <div className="w-full max-w-md">
 
         {/* Card */}
-        <div className="bg-white/70 backdrop-blur-md shadow-xl shadow-plum-200/40 rounded-3xl p-8">
+        <div className="bg-cream/80 backdrop-blur-sm border border-sage-100 shadow-lg shadow-sage-200/30 rounded-2xl px-8 py-10">
 
           {/* Header */}
           <div className="flex flex-col items-center text-center mb-8">
-            <img src="/butterfly-logo.png" alt="Butterfly" className="w-32 h-32 mb-3 drop-shadow-md" />
-            <h1 className="font-display text-4xl font-semibold text-plum-900 leading-tight">Butterfly</h1>
-            <p className="text-sm text-plum-400 mt-1 italic font-display">Turn your thoughts into playlists.</p>
+            <img src="/butterfly-logo.png" alt="Butterfly" className="w-24 h-24 mb-1" />
+            <p className="font-display italic text-sage-400 text-base mt-1">Turn your thoughts into playlists.</p>
           </div>
 
           {/* Landing — /test only */}
@@ -124,27 +123,25 @@ function App() {
             <div className="flex flex-col items-center gap-3">
               <a
                 href={`${BACKEND}/login`}
-                className="w-full text-center bg-plum-600 text-white px-4 py-3 rounded-xl hover:bg-plum-700 font-medium transition-colors"
+                className="w-full text-center bg-sage-500 text-white px-4 py-3 rounded-xl hover:bg-sage-600 font-medium transition-colors text-sm"
               >
                 Login with Spotify
               </a>
-              <p className="text-xs text-plum-400 text-center max-w-xs">
+              <p className="text-xs text-sage-400 text-center max-w-xs">
                 Creates the playlist directly in your Spotify library.
               </p>
-
               <div className="flex items-center w-full gap-3 my-1">
-                <hr className="flex-1 border-plum-100" />
-                <span className="text-xs text-plum-400">or</span>
-                <hr className="flex-1 border-plum-100" />
+                <hr className="flex-1 border-sage-100" />
+                <span className="text-xs text-sage-300">or</span>
+                <hr className="flex-1 border-sage-100" />
               </div>
-
               <button
                 onClick={() => setMode('guest')}
-                className="w-full bg-white border border-plum-200 text-plum-600 px-4 py-3 rounded-xl hover:bg-plum-50 font-medium transition-colors"
+                className="w-full bg-white border border-sage-200 text-sage-600 px-4 py-3 rounded-xl hover:bg-sage-50 font-medium transition-colors text-sm"
               >
                 Continue without login
               </button>
-              <p className="text-xs text-plum-400 text-center max-w-xs">
+              <p className="text-xs text-sage-400 text-center max-w-xs">
                 We'll create a public playlist on Butterfly's account — open the link to listen and save it.
               </p>
             </div>
@@ -152,13 +149,13 @@ function App() {
 
           {/* Prompt form */}
           {mode !== null && !playlistUrl && (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block font-display text-2xl font-semibold text-plum-900 mb-2 leading-snug">
+                <label className="block font-display italic text-sage-800 text-xl mb-2">
                   What story should your playlist tell?
                 </label>
                 <textarea
-                  className="w-full border border-plum-100 bg-plum-50/50 rounded-xl px-4 py-3 text-plum-900 placeholder-plum-400/60 focus:outline-none focus:ring-2 focus:ring-plum-300 resize-none transition"
+                  className="w-full border border-sage-100 bg-white/60 rounded-xl px-4 py-3 text-sage-900 text-sm placeholder-sage-300 focus:outline-none focus:ring-2 focus:ring-sage-300 resize-none transition"
                   placeholder={placeholder}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
@@ -166,7 +163,7 @@ function App() {
                     e.target.style.height = 'auto';
                     e.target.style.height = `${e.target.scrollHeight}px`;
                   }}
-                  rows={2}
+                  rows={3}
                   required
                 />
               </div>
@@ -174,7 +171,7 @@ function App() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-plum-600 text-white py-3 rounded-xl hover:bg-plum-700 font-medium transition-colors disabled:opacity-60"
+                className="w-full bg-sage-500 text-white py-3 rounded-xl hover:bg-sage-600 text-sm font-medium transition-colors disabled:opacity-60"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -188,33 +185,33 @@ function App() {
               </button>
 
               {(mode === 'login' || isTestRoute) && (
-                <button type="button" onClick={handleLogout} className="w-full text-xs text-plum-400 hover:text-plum-600 transition-colors">
+                <button type="button" onClick={handleLogout} className="w-full text-xs text-sage-300 hover:text-sage-500 transition-colors pt-1">
                   {mode === 'login' ? 'Log out' : 'Back'}
                 </button>
               )}
             </form>
           )}
 
-          {error && <p className="text-red-500 mt-4 text-sm">{error}</p>}
+          {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
 
           {/* Result */}
           {playlistUrl && (
-            <div className="mt-2">
-              <h2 className="font-display text-3xl font-semibold text-plum-900 mb-1">{playlistName || 'Your Playlist'}</h2>
+            <div>
+              <h2 className="font-display text-2xl font-semibold text-sage-900 mb-1">{playlistName || 'Your Playlist'}</h2>
 
               {guestMode && (
-                <p className="text-xs text-plum-400 mb-4">
-                  This playlist lives on Butterfly's account — follow it on Spotify to save it to your library.
+                <p className="text-xs text-sage-400 mb-4">
+                  Playlist is on Butterfly's account — follow it on Spotify to save to your library.
                 </p>
               )}
 
-              <ol className="space-y-2 mt-4">
+              <ol className="space-y-2.5 mt-4">
                 {songs.map((song, idx) => (
                   <li key={idx} className="flex items-baseline gap-3">
-                    <span className="font-display text-plum-300 text-lg w-5 text-right shrink-0">{idx + 1}</span>
+                    <span className="font-display text-sage-300 text-base w-4 text-right shrink-0">{idx + 1}</span>
                     <div>
-                      <span className="font-medium text-plum-900">{song.title}</span>
-                      <span className="text-sm text-plum-400 ml-2">{song.artist}</span>
+                      <span className="text-sm font-medium text-sage-900">{song.title}</span>
+                      <span className="text-xs text-sage-400 ml-1.5">{song.artist}</span>
                     </div>
                   </li>
                 ))}
@@ -225,20 +222,20 @@ function App() {
                   href={playlistUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 text-center bg-plum-600 text-white px-4 py-2.5 rounded-xl hover:bg-plum-700 font-medium transition-colors"
+                  className="flex-1 text-center bg-sage-500 text-white px-4 py-2.5 rounded-xl hover:bg-sage-600 text-sm font-medium transition-colors"
                 >
                   Open in Spotify
                 </a>
                 <button
                   onClick={() => { setPlaylistUrl(''); setSongs([]); setPrompt(''); }}
-                  className="flex-1 bg-white border border-plum-200 text-plum-600 px-4 py-2.5 rounded-xl hover:bg-plum-50 font-medium transition-colors"
+                  className="flex-1 bg-white border border-sage-200 text-sage-600 px-4 py-2.5 rounded-xl hover:bg-sage-50 text-sm font-medium transition-colors"
                 >
                   Generate another
                 </button>
               </div>
 
               {(mode === 'login' || isTestRoute) && (
-                <button onClick={handleLogout} className="w-full text-xs text-plum-400 hover:text-plum-600 mt-3 transition-colors">
+                <button onClick={handleLogout} className="w-full text-xs text-sage-300 hover:text-sage-500 mt-3 transition-colors">
                   {mode === 'login' ? 'Log out' : 'Back to home'}
                 </button>
               )}

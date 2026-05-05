@@ -1,4 +1,4 @@
-/** @type {import('tailwindcss') .Config} */
+/** @type {import('tailwindcss').Config} */
 export default {
   content: [
     "./index.html",
@@ -11,17 +11,20 @@ export default {
         body: ['Plus Jakarta Sans', 'sans-serif'],
       },
       colors: {
-        plum: {
-          50:  '#f5f0ff',
-          100: '#ede5ff',
-          200: '#ddd0ff',
-          400: '#a855f7',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          900: '#3b0764',
+        sage: {
+          50:  '#f4f7f2',
+          100: '#e6ede3',
+          200: '#cdddc8',
+          300: '#a9c4a2',
+          400: '#7a9e72',
+          500: '#5e8356',
+          600: '#4a6b43',
+          700: '#3a5434',
+          800: '#2d4129',
+          900: '#1e2d1b',
         },
-        blush: '#fde8e8',
-        lavender: '#e8d5f5',
+        cream: '#faf8f3',
+        parchment: '#f0ede6',
       },
     },
   },
