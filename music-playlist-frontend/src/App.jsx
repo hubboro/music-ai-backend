@@ -5,7 +5,7 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
 function App() {
   const isTestRoute = window.location.pathname === '/test';
-  const [mode, setMode] = useState(isTestRoute ? null : 'guest'); // null | 'login' | 'guest'
+  const [mode, setMode] = useState(isTestRoute ? null : 'guest');
   const [prompt, setPrompt] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
@@ -69,17 +69,13 @@ function App() {
       }
 
       const res = await axios.post(`${BACKEND}/generate_playlist`, body);
-
       setPlaylistUrl(res.data.playlist_url);
       setSongs(res.data.songs_added);
       setPlaylistName(res.data.playlist_name);
       setGuestMode(res.data.guest_mode);
     } catch (err) {
       const message = err?.response?.data?.detail || err?.message || '';
-      if (
-        message.toLowerCase().includes('token expired') ||
-        message.toLowerCase().includes('spotify auth error')
-      ) {
+      if (message.toLowerCase().includes('token expired') || message.toLowerCase().includes('spotify auth error')) {
         alert('Your Spotify session expired. Please log in again.');
         setMode(null);
         setAccessToken('');
@@ -99,9 +95,10 @@ function App() {
     localStorage.removeItem('spotify_token_timestamp');
     setAccessToken('');
     setRefreshToken('');
-    setMode(null);
+    setMode(isTestRoute ? null : 'guest');
     setPlaylistUrl('');
     setSongs([]);
+    setPrompt('');
   };
 
   const placeholder = placeholders.length > 0
@@ -109,131 +106,146 @@ function App() {
     : 'e.g. a sunrise on a quiet beach, dancing in the kitchen, rain on glass';
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] py-10 px-4 font-sans">
-      <div className="max-w-xl mx-auto bg-white shadow-md rounded-2xl p-6">
+    <div className="min-h-screen py-10 px-4 font-body">
+      <div className="max-w-lg mx-auto">
 
-        <div className="flex flex-col items-center justify-center text-center mb-6">
-          <img src="/butterfly-logo.png" alt="Butterfly Logo" className="w-40 h-40 mb-2" />
-          <p className="text-sm text-gray-500 italic">Butterfly will turn your thoughts into playlists.</p>
-        </div>
+        {/* Card */}
+        <div className="bg-white/70 backdrop-blur-md shadow-xl shadow-plum-200/40 rounded-3xl p-8">
 
-        {/* Landing — choose a path (only on /test) */}
-        {mode === null && isTestRoute && (
-          <div className="flex flex-col items-center gap-3">
-            <a
-              href={`${BACKEND}/login`}
-              className="w-full text-center bg-[#a7b89c] text-white px-4 py-3 rounded-md hover:bg-[#94a788] font-medium"
-            >
-              Login with Spotify
-            </a>
-            <p className="text-xs text-gray-400 text-center max-w-xs">
-              Creates the playlist directly in your Spotify library.
-            </p>
-
-            <div className="flex items-center w-full gap-2 my-1">
-              <hr className="flex-1 border-gray-200" />
-              <span className="text-xs text-gray-400">or</span>
-              <hr className="flex-1 border-gray-200" />
-            </div>
-
-            <button
-              onClick={() => setMode('guest')}
-              className="w-full bg-white border border-[#a7b89c] text-[#6b8f5e] px-4 py-3 rounded-md hover:bg-[#f3f4f6] font-medium"
-            >
-              Continue without login
-            </button>
-            <p className="text-xs text-gray-400 text-center max-w-xs">
-              We'll create a public playlist on Butterfly's account — open the link to listen and save it to your library.
-            </p>
+          {/* Header */}
+          <div className="flex flex-col items-center text-center mb-8">
+            <img src="/butterfly-logo.png" alt="Butterfly" className="w-32 h-32 mb-3 drop-shadow-md" />
+            <h1 className="font-display text-4xl font-semibold text-plum-900 leading-tight">Butterfly</h1>
+            <p className="text-sm text-plum-400 mt-1 italic font-display">Turn your thoughts into playlists.</p>
           </div>
-        )}
 
-        {/* Prompt form */}
-        {mode !== null && !playlistUrl && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-lg font-semibold text-gray-700">
-                What story should your playlist tell?
-              </label>
-              <textarea
-                className="w-full border border-gray-300 rounded-md px-3 py-4 mt-1 resize-none align-top text-base"
-                placeholder={placeholder}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={2}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-[#a7b89c] text-white py-2 rounded-md hover:bg-[#94a788]"
-              disabled={loading}
-            >
-              {loading ? 'Generating...' : 'Generate Playlist'}
-            </button>
-            {(mode === 'login' || isTestRoute) && (
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full text-xs text-gray-400 hover:text-gray-600 mt-1"
-              >
-                {mode === 'login' ? 'Log out' : 'Back'}
-              </button>
-            )}
-          </form>
-        )}
-
-        {error && <p className="text-red-600 mt-4">{error}</p>}
-
-        {/* Result */}
-        {playlistUrl && (
-          <div className="mt-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-1">{playlistName || 'Your Playlist'}</h2>
-
-            {guestMode && (
-              <p className="text-xs text-gray-400 mb-4">
-                This playlist lives on Butterfly's account — follow it on Spotify to save it to your library.
-              </p>
-            )}
-
-            <ol className="mt-2 space-y-2 list-decimal list-inside text-left">
-              {songs.map((song, idx) => (
-                <li key={idx}>
-                  <span className="text-lg font-semibold text-gray-900">{song.title}</span>{' '}
-                  <span className="text-sm text-gray-500">{song.artist}</span>
-                </li>
-              ))}
-            </ol>
-
-            <div className="flex gap-3 mt-4">
+          {/* Landing — /test only */}
+          {mode === null && isTestRoute && (
+            <div className="flex flex-col items-center gap-3">
               <a
-                href={playlistUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 text-center bg-[#a7b89c] text-white px-4 py-2 rounded-md hover:bg-[#94a788]"
+                href={`${BACKEND}/login`}
+                className="w-full text-center bg-plum-600 text-white px-4 py-3 rounded-xl hover:bg-plum-700 font-medium transition-colors"
               >
-                Open in Spotify
+                Login with Spotify
               </a>
-              <button
-                onClick={() => { setPlaylistUrl(''); setSongs([]); setPrompt(''); }}
-                className="flex-1 bg-white border border-[#a7b89c] text-[#6b8f5e] px-4 py-2 rounded-md hover:bg-[#f3f4f6]"
-              >
-                Generate another
-              </button>
-            </div>
+              <p className="text-xs text-plum-400 text-center max-w-xs">
+                Creates the playlist directly in your Spotify library.
+              </p>
 
-            <button
-              onClick={handleLogout}
-              className="w-full text-xs text-gray-400 hover:text-gray-600 mt-3"
-            >
-              {mode === 'login' ? 'Log out' : 'Back to home'}
-            </button>
-          </div>
-        )}
+              <div className="flex items-center w-full gap-3 my-1">
+                <hr className="flex-1 border-plum-100" />
+                <span className="text-xs text-plum-400">or</span>
+                <hr className="flex-1 border-plum-100" />
+              </div>
+
+              <button
+                onClick={() => setMode('guest')}
+                className="w-full bg-white border border-plum-200 text-plum-600 px-4 py-3 rounded-xl hover:bg-plum-50 font-medium transition-colors"
+              >
+                Continue without login
+              </button>
+              <p className="text-xs text-plum-400 text-center max-w-xs">
+                We'll create a public playlist on Butterfly's account — open the link to listen and save it.
+              </p>
+            </div>
+          )}
+
+          {/* Prompt form */}
+          {mode !== null && !playlistUrl && (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block font-display text-2xl font-semibold text-plum-900 mb-2 leading-snug">
+                  What story should your playlist tell?
+                </label>
+                <textarea
+                  className="w-full border border-plum-100 bg-plum-50/50 rounded-xl px-4 py-3 text-plum-900 placeholder-plum-400/60 focus:outline-none focus:ring-2 focus:ring-plum-300 resize-none transition"
+                  placeholder={placeholder}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  rows={2}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-plum-600 text-white py-3 rounded-xl hover:bg-plum-700 font-medium transition-colors disabled:opacity-60"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                    Generating…
+                  </span>
+                ) : 'Generate Playlist'}
+              </button>
+
+              {(mode === 'login' || isTestRoute) && (
+                <button type="button" onClick={handleLogout} className="w-full text-xs text-plum-400 hover:text-plum-600 transition-colors">
+                  {mode === 'login' ? 'Log out' : 'Back'}
+                </button>
+              )}
+            </form>
+          )}
+
+          {error && <p className="text-red-500 mt-4 text-sm">{error}</p>}
+
+          {/* Result */}
+          {playlistUrl && (
+            <div className="mt-2">
+              <h2 className="font-display text-3xl font-semibold text-plum-900 mb-1">{playlistName || 'Your Playlist'}</h2>
+
+              {guestMode && (
+                <p className="text-xs text-plum-400 mb-4">
+                  This playlist lives on Butterfly's account — follow it on Spotify to save it to your library.
+                </p>
+              )}
+
+              <ol className="space-y-2 mt-4">
+                {songs.map((song, idx) => (
+                  <li key={idx} className="flex items-baseline gap-3">
+                    <span className="font-display text-plum-300 text-lg w-5 text-right shrink-0">{idx + 1}</span>
+                    <div>
+                      <span className="font-medium text-plum-900">{song.title}</span>
+                      <span className="text-sm text-plum-400 ml-2">{song.artist}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="flex gap-3 mt-6">
+                <a
+                  href={playlistUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-center bg-plum-600 text-white px-4 py-2.5 rounded-xl hover:bg-plum-700 font-medium transition-colors"
+                >
+                  Open in Spotify
+                </a>
+                <button
+                  onClick={() => { setPlaylistUrl(''); setSongs([]); setPrompt(''); }}
+                  className="flex-1 bg-white border border-plum-200 text-plum-600 px-4 py-2.5 rounded-xl hover:bg-plum-50 font-medium transition-colors"
+                >
+                  Generate another
+                </button>
+              </div>
+
+              {(mode === 'login' || isTestRoute) && (
+                <button onClick={handleLogout} className="w-full text-xs text-plum-400 hover:text-plum-600 mt-3 transition-colors">
+                  {mode === 'login' ? 'Log out' : 'Back to home'}
+                </button>
+              )}
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   );
