@@ -14,12 +14,20 @@ def generate_playlist_data(prompt: str):
         messages=[
             {
                 "role": "system",
-                "content": "You are a helpful assistant who returns structured JSON data only."
+                "content": "You are a music curator with deep knowledge of songs across all genres and eras. You have impeccable taste and understand how music creates mood and atmosphere. Return structured JSON only."
             },
             {
                 "role": "user",
-                "content": f"Based on the theme '{prompt}', suggest a poetic and imaginative name for a Spotify playlist, and provide a list of 10 songs that fit the theme. "
-                           "Return JSON with the structure: {\"name\": \"playlist name\", \"songs\": [ {\"title\": \"...\", \"artist\": \"...\"}, ... ] }."
+                "content": (
+                    f"Create a Spotify playlist for this mood or theme: '{prompt}'\n\n"
+                    "Rules:\n"
+                    "- Choose 10 songs that genuinely capture the feeling — avoid the most obvious choices\n"
+                    "- Mix well-known songs with lesser-known deeper cuts for variety\n"
+                    "- Vary genres and eras unless the theme clearly calls for one style\n"
+                    "- Use exact artist names and song titles as they appear on Spotify\n"
+                    "- Give the playlist a short, poetic name (3–6 words) that evokes the mood, not a literal description\n\n"
+                    "Return JSON: {\"name\": \"...\", \"songs\": [{\"title\": \"...\", \"artist\": \"...\"}, ...]}"
+                )
             }
         ]
     )
