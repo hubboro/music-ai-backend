@@ -1,4 +1,5 @@
 import os
+import random
 from openai import OpenAI
 import json
 from dotenv import load_dotenv
@@ -42,26 +43,11 @@ def generate_playlist_data(prompt: str):
         return {"name": "Untitled Playlist", "songs": []}
 
 def generate_prompt_placeholders():
-    system_prompt = "You are a creative assistant helping users write inspiring playlist prompts. Your job is to come up with fun, vivid, and inspiring prompts that help users describe the vibe or theme of a playlist they want to generate."
-    user_prompt = (
-        "Give me a unique and descriptive playlist prompt example that helps inspire users. "
-        "It should describe a different theme, mood, or idea, music genre or artist. It should not be generic. "
-        "It should be one sentence, no longer than 12 words."
-    )
-
     try:
-        response = client.chat.completions.create(
-            model="gpt-4.1-nano",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.9
-        )
-
-        content = response.choices[0].message.content.strip()
-        result = content.strip("-• ").strip()
-        return [result] if result else ["A sunrise rave on Mars"]
+        path = os.path.join(os.path.dirname(__file__), "placeholders.json")
+        with open(path) as f:
+            examples = json.load(f)
+        return [random.choice(examples)]
     except Exception as e:
-        print("🔥 Error fetching placeholders from OpenAI:", str(e))
-        return ["A sunrise rave on Mars", "Lo-fi jazz in a post-apocalyptic café"]
+        print("🔥 Error loading placeholders:", str(e))
+        return ["a late summer evening, windows open, nowhere to be"]
