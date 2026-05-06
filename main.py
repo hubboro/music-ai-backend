@@ -12,7 +12,6 @@ load_dotenv()
 app = FastAPI()
 
 FRONTEND_URL = "https://butterfly-music-app.vercel.app"
-BACKEND_URL = os.getenv("BACKEND_URL", "https://butterfly-music-app.onrender.com")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,31 +35,6 @@ def callback(code: str):
     refresh_token = token_data.get("refresh_token")
     return RedirectResponse(f"{FRONTEND_URL}?token={access_token}&refresh_token={refresh_token}")
 
-# One-time setup: visit /app_login to authorise the app account, then copy the
-# refresh_token from /app_callback and set it as APP_SPOTIFY_REFRESH_TOKEN on Render.
-@app.get("/app_login")
-def app_login():
-    redirect_uri = f"{BACKEND_URL}/app_callback"
-    return RedirectResponse(get_spotify_auth_url(redirect_uri_override=redirect_uri))
-
-@app.get("/app_callback")
-def app_callback(code: str):
-    redirect_uri = f"{BACKEND_URL}/app_callback"
-    from spotify_utils import get_token as _get_token, TOKEN_URL, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
-    import requests as _requests
-    payload = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": redirect_uri,
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-    }
-    token_data = _requests.post(TOKEN_URL, data=payload).json()
-    return JSONResponse({
-        "message": "Copy the refresh_token below and set it as APP_SPOTIFY_REFRESH_TOKEN in your Render env vars.",
-        "refresh_token": token_data.get("refresh_token"),
-        "access_token": token_data.get("access_token"),
-    })
 
 @app.post("/generate_playlist")
 async def generate_playlist(request: Request):

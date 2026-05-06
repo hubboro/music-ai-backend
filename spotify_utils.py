@@ -16,11 +16,11 @@ SCOPE = "playlist-modify-public playlist-modify-private"
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 
-def get_spotify_auth_url(redirect_uri_override=None):
+def get_spotify_auth_url():
     query = urlencode({
         "client_id": CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": redirect_uri_override or REDIRECT_URI,
+        "redirect_uri": REDIRECT_URI,
         "scope": SCOPE
     })
     return f"{AUTH_URL}?{query}"
