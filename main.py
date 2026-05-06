@@ -121,6 +121,8 @@ async def generate_playlist(request: Request):
 
     except Exception as e:
         print("🔥 Exception during playlist generation:", str(e))
+        if "429" in str(e) or "insufficient_quota" in str(e) or "rate_limit" in str(e).lower():
+            return JSONResponse({"error": "rate_limited"}, status_code=503)
         return JSONResponse({"error": "Internal server error"}, status_code=500)
 
 @app.get("/")
