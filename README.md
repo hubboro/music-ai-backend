@@ -93,4 +93,4 @@ You'll need:
 
 ## Development notes
 
-Built with the help of [Claude Code](https://claude.ai/code) (Anthropic's AI coding assistant) for pair programming, implementation, and debugging. Architecture decisions, product direction, and code review were my own.
+The initial version was prototyped with the help of [ChatGPT](https://chatgpt.com). The project was then continued and significantly extended using [Claude Code](https://claude.ai/code) (Anthropic's AI coding assistant) for pair programming, implementation, and debugging. Architecture decisions, product direction, and code review were my own.
