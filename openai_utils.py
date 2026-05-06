@@ -43,7 +43,7 @@ def generate_prompt_placeholders():
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4.1-nano",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -52,8 +52,8 @@ def generate_prompt_placeholders():
         )
 
         content = response.choices[0].message.content.strip()
-        placeholders = [line.strip("-• ") for line in content.split("\n") if line.strip()]
-        return placeholders[:1]
+        result = content.strip("-• ").strip()
+        return [result] if result else ["A sunrise rave on Mars"]
     except Exception as e:
         print("🔥 Error fetching placeholders from OpenAI:", str(e))
         return ["A sunrise rave on Mars", "Lo-fi jazz in a post-apocalyptic café"]
