@@ -84,6 +84,8 @@ function App() {
         setAccessToken('');
         setRefreshToken('');
         localStorage.clear();
+      } else if (err?.response?.data?.error === 'rate_limited') {
+        setError('Butterfly is taking a breather — too many playlists at once. Try again in a moment.');
       } else {
         setError('Something went wrong. Please try again.');
       }
