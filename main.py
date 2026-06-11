@@ -59,7 +59,11 @@ async def generate_playlist(request: Request):
         song_list = result.get("songs", [])
 
         clean_prompt = re.sub(r"[^\w\s.,!?'\-]", "", prompt or "").replace("\n", " ").strip()
-        playlist_description = f"Butterfly generated: {clean_prompt[:120]}" or "Butterfly generated: a musical vibe"
+        playlist_description = (
+            f"Made with Butterfly: {clean_prompt[:120]}"
+            if clean_prompt
+            else "Made with Butterfly from a feeling."
+        )
 
         try:
             playlist_url, added_songs = await create_playlist_from_prompt(

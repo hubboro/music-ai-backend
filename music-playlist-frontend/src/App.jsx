@@ -126,7 +126,7 @@ function App() {
           type="button"
           onClick={handleReset}
           className="brand-button"
-          aria-label="Start a new Butterfly playlist"
+          aria-label="Start a new Butterfly soundtrack"
         >
           <img src="/butterfly-logo.png" alt="" className="h-12 w-12" />
         </button>
@@ -147,7 +147,7 @@ function App() {
           <section className="intro-screen">
             <div>
               <p className="eyebrow">Test mode</p>
-              <h1 className="screen-title">Choose how to make your playlist.</h1>
+              <h1 className="screen-title">Choose how to make your soundtrack.</h1>
             </div>
 
             <div className="stack-actions">
@@ -196,8 +196,8 @@ function App() {
                   <img src="/butterfly-logo.png" alt="" className="h-8 w-8" />
                 </div>
                 <div>
-                  <p className="creating-title">Creating your playlist</p>
-                  <p className="creating-copy">Finding songs that fit the shape of your prompt.</p>
+                  <p className="creating-title">Creating your soundtrack</p>
+                  <p className="creating-copy">Finding songs that fit the feeling.</p>
                 </div>
               </section>
             )}
@@ -217,7 +217,7 @@ function App() {
                 {loading ? (
                   <span className="button-with-spinner">
                     <span className="spinner" aria-hidden="true" />
-                    Generating
+                    Creating
                   </span>
                 ) : (
                   'Make my soundtrack'
@@ -230,8 +230,8 @@ function App() {
         {playlistUrl && (
           <section className="result-screen">
             <div className="playlist-hero">
-              <p className="eyebrow">Your playlist</p>
-              <h1 className="playlist-title">{playlistName || 'Your Playlist'}</h1>
+              <p className="eyebrow">Your soundtrack</p>
+              <h1 className="playlist-title">{playlistName || 'Your Soundtrack'}</h1>
               {guestMode && (
                 <p className="playlist-note">
                   Follow it on Spotify to save it to your library.
@@ -239,7 +239,7 @@ function App() {
               )}
             </div>
 
-            <ol className="track-list" aria-label="Songs added to your playlist">
+            <ol className="track-list" aria-label="Songs in your soundtrack">
               {songs.map((song, idx) => (
                 <li key={`${song.title}-${song.artist}-${idx}`} className="track-row">
                   <span className="track-number">{String(idx + 1).padStart(2, '0')}</span>
