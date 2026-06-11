@@ -14,7 +14,7 @@ function App() {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [placeholder, setPlaceholder] = useState('a late summer evening, windows open, nowhere to be…');
+  const [placeholder, setPlaceholder] = useState('a late summer evening, windows open, nowhere to be...');
   const [guestMode, setGuestMode] = useState(false);
 
   useEffect(() => {
@@ -57,6 +57,12 @@ function App() {
       .catch(() => {});
   }, []);
 
+  const handlePromptInput = (e) => {
+    setPrompt(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -79,13 +85,13 @@ function App() {
     } catch (err) {
       const message = err?.response?.data?.detail || err?.message || '';
       if (message.toLowerCase().includes('token expired') || message.toLowerCase().includes('spotify auth error')) {
-        alert('Your Spotify session expired. Please log in again.');
-        setMode(null);
+        setError('Your Spotify session expired. Please log in again.');
+        setMode(isTestRoute ? null : 'guest');
         setAccessToken('');
         setRefreshToken('');
         localStorage.clear();
       } else if (err?.response?.data?.error === 'rate_limited') {
-        setError('Butterfly is taking a breather — too many playlists at once. Try again in a moment.');
+        setError('Butterfly is taking a breather - too many playlists at once. Try again in a moment.');
       } else {
         setError('Something went wrong. Please try again.');
       }
@@ -98,6 +104,7 @@ function App() {
     setPlaylistUrl('');
     setSongs([]);
     setPrompt('');
+    setError('');
   };
 
   const handleLogout = () => {
@@ -110,141 +117,160 @@ function App() {
     handleReset();
   };
 
+  const hasPrompt = prompt.trim().length > 0;
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 font-body">
-      <div className="w-full max-w-sm">
+    <div className="app-shell font-body text-sage-900">
+      <header className="app-header">
+        <button
+          type="button"
+          onClick={handleReset}
+          className="brand-button"
+          aria-label="Start a new Butterfly playlist"
+        >
+          <img src="/butterfly-logo.png" alt="" className="h-12 w-12" />
+        </button>
 
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <img src="/butterfly-logo.png" alt="Butterfly" className="w-20 h-20" />
-        </div>
+        {(mode === 'login' || isTestRoute) && mode !== null && (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="secondary-action"
+          >
+            {mode === 'login' ? 'Log out' : 'Back'}
+          </button>
+        )}
+      </header>
 
-        {/* /test landing */}
+      <main className="app-main">
         {mode === null && isTestRoute && (
-          <div className="flex flex-col gap-3">
-            <a
-              href={`${BACKEND}/login`}
-              className="w-full text-center bg-sage-500 text-white py-3 rounded-xl hover:bg-sage-600 font-medium text-sm transition-colors"
-            >
-              Login with Spotify
-            </a>
-            <div className="flex items-center gap-3">
-              <hr className="flex-1 border-sage-100" />
-              <span className="text-xs text-sage-300 font-body">or</span>
-              <hr className="flex-1 border-sage-100" />
+          <section className="intro-screen">
+            <div>
+              <p className="eyebrow">Test mode</p>
+              <h1 className="screen-title">Choose how to make your playlist.</h1>
             </div>
-            <button
-              onClick={() => setMode('guest')}
-              className="w-full border border-sage-200 text-sage-600 py-3 rounded-xl hover:bg-sage-50 font-medium text-sm transition-colors"
-            >
-              Continue without login
-            </button>
-          </div>
+
+            <div className="stack-actions">
+              <a href={`${BACKEND}/login`} className="primary-button">
+                Login with Spotify
+              </a>
+              <button
+                type="button"
+                onClick={() => setMode('guest')}
+                className="quiet-button"
+              >
+                Continue without login
+              </button>
+            </div>
+          </section>
         )}
 
-        {/* Prompt form */}
         {mode !== null && !playlistUrl && (
-          <form onSubmit={handleSubmit}>
-            <label className="block font-display italic text-sage-700 text-lg mb-3 text-center">
-              What story should your playlist tell?
-            </label>
+          <form onSubmit={handleSubmit} className="composer-screen">
+            <section className="composer-panel" aria-busy={loading}>
+              <p className="eyebrow">Butterfly</p>
+              <label htmlFor="playlist-prompt" className="composer-label">
+                What should your soundtrack feel like?
+              </label>
 
-            {/* Writing area */}
-            <div className="border-b-2 border-sage-200 focus-within:border-sage-400 transition-colors pb-1 mb-8">
               <textarea
-                className="w-full bg-transparent text-sage-900 font-display italic text-lg placeholder-sage-300 focus:outline-none resize-none leading-relaxed"
+                id="playlist-prompt"
+                className="composer-textarea"
                 placeholder={placeholder}
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                rows={3}
+                onChange={handlePromptInput}
+                rows={6}
                 required
+                disabled={loading}
+                autoCapitalize="sentences"
+                autoComplete="off"
+                autoCorrect="on"
+                enterKeyHint="done"
+                spellCheck="true"
               />
-            </div>
+            </section>
 
-            <div className="flex justify-center">
+            {loading && (
+              <section className="creating-state" role="status" aria-live="polite">
+                <div className="pulse-mark">
+                  <img src="/butterfly-logo.png" alt="" className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="creating-title">Creating your playlist</p>
+                  <p className="creating-copy">Finding songs that fit the shape of your prompt.</p>
+                </div>
+              </section>
+            )}
+
+            {error && (
+              <p className="toast-message" role="alert">
+                {error}
+              </p>
+            )}
+
+            <div className="bottom-action">
               <button
                 type="submit"
-                disabled={loading}
-                className="inline-flex items-center gap-2 bg-sage-500 text-white text-sm font-medium px-8 py-2.5 rounded-full hover:bg-sage-600 transition-colors disabled:opacity-60"
+                disabled={loading || !hasPrompt}
+                className="primary-button"
               >
                 {loading ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
+                  <span className="button-with-spinner">
+                    <span className="spinner" aria-hidden="true" />
                     Generating
-                  </>
+                  </span>
                 ) : (
-                  <>Generate <span className="opacity-70">→</span></>
+                  'Make my soundtrack'
                 )}
               </button>
             </div>
-
-            {(mode === 'login' || isTestRoute) && (
-              <p className="text-center mt-5">
-                <button type="button" onClick={handleLogout} className="text-xs text-sage-300 hover:text-sage-500 transition-colors">
-                  {mode === 'login' ? 'Log out' : 'Back'}
-                </button>
-              </p>
-            )}
           </form>
         )}
 
-        {error && <p className="text-red-400 text-sm text-center mt-4">{error}</p>}
-
-        {/* Result */}
         {playlistUrl && (
-          <div>
-            <h2 className="font-display italic text-2xl text-sage-900 text-center mb-1">{playlistName || 'Your Playlist'}</h2>
+          <section className="result-screen">
+            <div className="playlist-hero">
+              <p className="eyebrow">Your playlist</p>
+              <h1 className="playlist-title">{playlistName || 'Your Playlist'}</h1>
+              {guestMode && (
+                <p className="playlist-note">
+                  Follow it on Spotify to save it to your library.
+                </p>
+              )}
+            </div>
 
-            {guestMode && (
-              <p className="text-center text-xs text-sage-300 mb-5">
-                Follow on Spotify to save to your library.
-              </p>
-            )}
-
-            <ol className="space-y-3 mt-5 mb-7">
+            <ol className="track-list" aria-label="Songs added to your playlist">
               {songs.map((song, idx) => (
-                <li key={idx} className="flex items-baseline gap-3">
-                  <span className="font-display italic text-sage-300 text-sm w-4 text-right shrink-0">{idx + 1}</span>
-                  <div className="min-w-0">
-                    <span className="text-sm font-medium text-sage-900">{song.title}</span>
-                    <span className="text-xs text-sage-400 ml-1.5">{song.artist}</span>
+                <li key={`${song.title}-${song.artist}-${idx}`} className="track-row">
+                  <span className="track-number">{String(idx + 1).padStart(2, '0')}</span>
+                  <div className="track-copy">
+                    <span className="track-title">{song.title}</span>
+                    <span className="track-artist">{song.artist}</span>
                   </div>
                 </li>
               ))}
             </ol>
 
-            <div className="flex flex-col items-center gap-3">
+            <div className="bottom-action result-actions">
               <a
                 href={playlistUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-sage-500 text-white text-sm font-medium px-8 py-2.5 rounded-full hover:bg-sage-600 transition-colors"
+                className="primary-button"
               >
-                Open in Spotify →
+                Open in Spotify
               </a>
               <button
+                type="button"
                 onClick={handleReset}
-                className="text-xs text-sage-400 hover:text-sage-600 transition-colors"
+                className="quiet-button"
               >
-                Generate another
+                Make another soundtrack
               </button>
-              {(mode === 'login' || isTestRoute) && (
-                <button onClick={handleLogout} className="text-xs text-sage-300 hover:text-sage-500 transition-colors">
-                  {mode === 'login' ? 'Log out' : 'Back to home'}
-                </button>
-              )}
             </div>
-          </div>
+          </section>
         )}
-
-      </div>
+      </main>
     </div>
   );
 }
