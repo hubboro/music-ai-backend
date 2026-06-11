@@ -96,7 +96,7 @@ async def create_playlist_from_prompt(song_list, access_token, playlist_name, re
     user_id = profile["id"]
 
     playlist_title = playlist_name if isinstance(playlist_name, str) and playlist_name.strip() else "Butterfly Playlist"
-    description_clean = playlist_description or "Butterfly generated: a musical vibe"
+    description_clean = playlist_description or "Made with Butterfly from a feeling."
 
     playlist_response = requests.post(
         f"https://api.spotify.com/v1/users/{user_id}/playlists",
