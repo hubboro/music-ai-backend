@@ -3,9 +3,230 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color: #1e2d1b;
+    background: #f4f0e8;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    min-height: 100%;
+    background: #f4f0e8;
+  }
+
   body {
+    min-height: 100%;
+    margin: 0;
+    overscroll-behavior-y: none;
+    background:
+      radial-gradient(circle at 50% -10%, rgba(205, 221, 200, 0.72), transparent 34rem),
+      linear-gradient(165deg, #edf3ea 0%, #f4f0e8 58%, #faf8f3 100%);
     font-family: 'Plus Jakarta Sans', sans-serif;
-    background: linear-gradient(145deg, #e8eee5 0%, #f4f0e8 60%, #faf8f3 100%);
-    min-height: 100vh;
+  }
+
+  button,
+  textarea,
+  input,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply relative mx-auto flex min-h-[100svh] w-full max-w-md flex-col overflow-x-hidden;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-header {
+    @apply sticky top-0 z-20 flex items-center justify-between px-5 pb-3 pt-4;
+    background: linear-gradient(180deg, rgba(244, 240, 232, 0.96) 0%, rgba(244, 240, 232, 0.74) 72%, rgba(244, 240, 232, 0) 100%);
+    backdrop-filter: blur(18px);
+  }
+
+  .brand-button {
+    @apply -ml-1 inline-flex h-12 w-12 items-center justify-center rounded-full transition duration-200 active:scale-95;
+  }
+
+  .secondary-action {
+    @apply rounded-full px-3 py-2 text-xs font-semibold text-sage-500 transition duration-200 active:scale-95 active:bg-sage-100/70;
+  }
+
+  .app-main {
+    @apply flex flex-1 flex-col px-5;
+    padding-bottom: calc(11.5rem + env(safe-area-inset-bottom));
+  }
+
+  .intro-screen,
+  .composer-screen,
+  .result-screen {
+    @apply flex flex-1 flex-col;
+  }
+
+  .intro-screen {
+    @apply justify-between gap-10 pb-2 pt-16;
+  }
+
+  .eyebrow {
+    @apply mb-3 text-[0.68rem] font-bold uppercase tracking-[0.18em] text-sage-400;
+  }
+
+  .screen-title {
+    @apply max-w-xs font-display text-4xl font-semibold leading-[0.96] text-sage-900;
+  }
+
+  .composer-screen {
+    @apply gap-6 pt-8;
+  }
+
+  .composer-panel {
+    @apply flex flex-1 flex-col pt-10;
+  }
+
+  .composer-label {
+    @apply block max-w-[18rem] font-display text-[2.55rem] font-semibold leading-[0.95] text-sage-900;
+  }
+
+  .composer-textarea {
+    @apply mt-8 min-h-[14rem] w-full flex-1 resize-none border-0 bg-transparent font-display text-[1.55rem] italic leading-snug text-sage-900 outline-none placeholder:text-sage-300 disabled:opacity-70;
+  }
+
+  .creating-state {
+    @apply flex items-center gap-4 rounded-2xl border border-sage-100/80 p-4 shadow-[0_18px_50px_rgba(46,65,41,0.08)];
+    background-color: rgba(250, 248, 243, 0.72);
+  }
+
+  .pulse-mark {
+    @apply grid h-12 w-12 shrink-0 place-items-center rounded-full bg-sage-100;
+    animation: soft-pulse 1.8s ease-in-out infinite;
+  }
+
+  .creating-title {
+    @apply text-sm font-semibold text-sage-800;
+  }
+
+  .creating-copy {
+    @apply mt-1 text-xs leading-5 text-sage-500;
+  }
+
+  .toast-message {
+    @apply rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm leading-5 text-red-700;
+  }
+
+  .bottom-action {
+    @apply fixed inset-x-0 bottom-0 z-30 mx-auto flex w-full max-w-md flex-col gap-3 px-5 pb-5 pt-4;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(244, 240, 232, 0) 0%, rgba(244, 240, 232, 0.94) 32%, rgba(244, 240, 232, 0.99) 100%);
+    backdrop-filter: blur(18px);
+  }
+
+  .primary-button {
+    @apply inline-flex min-h-14 w-full items-center justify-center rounded-full bg-sage-600 px-6 text-center text-base font-semibold text-white shadow-[0_16px_36px_rgba(74,107,67,0.24)] transition duration-200 active:scale-[0.985] active:bg-sage-700 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .quiet-button {
+    @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-sage-200/80 px-6 text-center text-sm font-semibold text-sage-700 transition duration-200 active:scale-[0.985] active:bg-sage-100;
+    background-color: rgba(250, 248, 243, 0.6);
+  }
+
+  .stack-actions {
+    @apply flex flex-col gap-3;
+  }
+
+  .button-with-spinner {
+    @apply inline-flex items-center gap-2;
+  }
+
+  .spinner {
+    @apply h-4 w-4 rounded-full border-2 border-white/35 border-t-white;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .result-screen {
+    @apply gap-7 pt-7;
+  }
+
+  .playlist-hero {
+    @apply rounded-[2rem] bg-sage-900 px-6 py-7 text-cream shadow-[0_22px_54px_rgba(30,45,27,0.22)];
+  }
+
+  .playlist-hero .eyebrow {
+    @apply text-sage-200;
+  }
+
+  .playlist-title {
+    @apply font-display text-[2.35rem] font-semibold leading-none text-white;
+  }
+
+  .playlist-note {
+    @apply mt-4 max-w-[16rem] text-sm leading-6 text-sage-100;
+  }
+
+  .track-list {
+    @apply flex flex-col gap-2;
+  }
+
+  .track-row {
+    @apply flex min-h-[4.25rem] items-center gap-4 rounded-[1.4rem] border border-sage-100/70 px-4 py-3 shadow-[0_12px_34px_rgba(46,65,41,0.05)];
+    background-color: rgba(250, 248, 243, 0.55);
+  }
+
+  .track-number {
+    @apply w-7 shrink-0 font-display text-lg italic text-sage-300;
+  }
+
+  .track-copy {
+    @apply min-w-0 flex-1;
+  }
+
+  .track-title {
+    @apply block truncate text-sm font-semibold text-sage-900;
+  }
+
+  .track-artist {
+    @apply mt-1 block truncate text-xs font-medium text-sage-500;
+  }
+
+  .result-actions {
+    @apply gap-2;
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.76;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    @apply my-6 min-h-[calc(100svh-3rem)] overflow-hidden rounded-[2.25rem] shadow-[0_28px_80px_rgba(30,45,27,0.16)];
+  }
+
+  .bottom-action {
+    @apply absolute;
   }
 }
