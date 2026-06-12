@@ -54,6 +54,38 @@ const writeSoundtrackHistory = (history) => {
   }
 };
 
+const copyTextToClipboard = async (text) => {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall back to the selection-based copy path below.
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'fixed';
+  textArea.style.top = '-9999px';
+  textArea.style.opacity = '0';
+  document.body.appendChild(textArea);
+  textArea.select();
+  textArea.setSelectionRange(0, text.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  } finally {
+    document.body.removeChild(textArea);
+  }
+
+  return copied;
+};
+
 const formatHistoryDate = (dateString) => {
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -82,6 +114,7 @@ function App() {
   const [placeholder, setPlaceholder] = useState('a late summer evening, windows open, nowhere to be...');
   const [guestMode, setGuestMode] = useState(false);
   const [soundtrackHistory, setSoundtrackHistory] = useState([]);
+  const [shareStatus, setShareStatus] = useState('');
 
   useEffect(() => {
     setSoundtrackHistory(readSoundtrackHistory());
@@ -246,6 +279,7 @@ function App() {
     setSongs([]);
     setPrompt('');
     setError('');
+    setShareStatus('');
   };
 
   const handleOpenHistoryItem = (item) => {
@@ -255,6 +289,7 @@ function App() {
     setPrompt(item.prompt || '');
     setGuestMode(true);
     setError('');
+    setShareStatus('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -274,6 +309,37 @@ function App() {
     setRefreshToken('');
     setMode(isTestRoute ? null : 'guest');
     handleReset();
+  };
+
+  const handleShare = async () => {
+    if (!playlistUrl) return;
+
+    const shareTitle = playlistName || 'Butterfly soundtrack';
+    const shareText = prompt.trim()
+      ? `Butterfly made me a soundtrack for: ${prompt.trim()}`
+      : 'Butterfly made me a soundtrack.';
+    const shareData = {
+      title: shareTitle,
+      text: shareText,
+      url: playlistUrl
+    };
+
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+        setShareStatus('Shared');
+      } else if (navigator.share) {
+        await navigator.share({ title: shareTitle, text: shareText, url: playlistUrl });
+        setShareStatus('Shared');
+      } else {
+        const copied = await copyTextToClipboard(playlistUrl);
+        setShareStatus(copied ? 'Link copied' : 'Open Spotify to share');
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      const copied = await copyTextToClipboard(playlistUrl);
+      setShareStatus(copied ? 'Link copied' : 'Open Spotify to share');
+    }
   };
 
   const hasPrompt = prompt.trim().length > 0;
@@ -488,6 +554,23 @@ function App() {
                 <span className="spotify-dot" aria-hidden="true" />
                 Listen on Spotify
               </a>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="quiet-button share-button"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 3v12" />
+                  <path d="M7 8l5-5 5 5" />
+                  <path d="M5 13v6h14v-6" />
+                </svg>
+                Share soundtrack
+              </button>
+              {shareStatus && (
+                <p className="share-status" role="status" aria-live="polite">
+                  {shareStatus}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleReset}
