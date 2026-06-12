@@ -30,6 +30,7 @@ BAD_VERSION_TERMS = (
 )
 MIN_STRICT_MATCH_SCORE = 80
 MIN_RELAXED_MATCH_SCORE = 88
+MIN_TRACK_POPULARITY = 25
 
 def get_spotify_auth_url():
     query = urlencode({
@@ -136,6 +137,7 @@ def _format_track_result(track: dict, score: int):
         "uri": track["uri"],
         "title": track["name"],
         "artist": ", ".join(_artist_names(track)),
+        "primary_artist": _artist_names(track)[0] if _artist_names(track) else "",
         "match_score": score
     }
 
@@ -143,6 +145,8 @@ def _best_track_match(song: dict, items: list, minimum_score: int):
     scored_items = []
     for item in items:
         if _has_bad_version_marker(item):
+            continue
+        if item.get("popularity", 0) < MIN_TRACK_POPULARITY:
             continue
         score = _score_track_match(song, item)
         if score >= minimum_score:
@@ -215,9 +219,15 @@ async def create_playlist_from_prompt(song_list, access_token, playlist_name, re
 
     uris = []
     added_songs = []
+    added_artists = set()
     for result in results:
         if result:
+            normalized_artist = _normalize_text(result.get("primary_artist") or result.get("artist"))
+            if normalized_artist in added_artists:
+                print(f"⚠️ Skipping duplicate Spotify artist: {result['title']} — {result['artist']}")
+                continue
             uris.append(result["uri"])
+            added_artists.add(normalized_artist)
             added_songs.append({"title": result["title"], "artist": result["artist"]})
 
     if uris:
