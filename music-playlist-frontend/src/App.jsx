@@ -2,6 +2,8 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import axios from 'axios';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
+const HISTORY_STORAGE_KEY = 'butterfly_soundtrack_history';
+const HISTORY_LIMIT = 12;
 
 const LOADING_STORIES = [
   'Reading the mood.',
@@ -22,6 +24,46 @@ const getRandomLoadingStory = (currentStory = '') => {
   return pool[Math.floor(Math.random() * pool.length)];
 };
 
+const readSoundtrackHistory = () => {
+  try {
+    const storedHistory = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || '[]');
+    if (!Array.isArray(storedHistory)) return [];
+
+    return storedHistory
+      .filter((item) => item?.playlistUrl && item?.playlistName)
+      .map((item) => ({
+        id: item.id || item.playlistUrl,
+        playlistName: item.playlistName,
+        prompt: item.prompt || 'Saved soundtrack',
+        playlistUrl: item.playlistUrl,
+        trackCount: Number.isFinite(item.trackCount) ? item.trackCount : 0,
+        createdAt: item.createdAt || new Date().toISOString()
+      }))
+      .slice(0, HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+};
+
+const writeSoundtrackHistory = (history) => {
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // History is a convenience feature; playlist creation should still succeed.
+  }
+};
+
+const formatHistoryDate = (dateString) => {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric'
+    }).format(new Date(dateString));
+  } catch {
+    return '';
+  }
+};
+
 function App() {
   const isTestRoute = window.location.pathname === '/test';
   const textareaRef = useRef(null);
@@ -38,8 +80,11 @@ function App() {
   const [error, setError] = useState('');
   const [placeholder, setPlaceholder] = useState('a late summer evening, windows open, nowhere to be...');
   const [guestMode, setGuestMode] = useState(false);
+  const [soundtrackHistory, setSoundtrackHistory] = useState([]);
 
   useEffect(() => {
+    setSoundtrackHistory(readSoundtrackHistory());
+
     const queryParams = new URLSearchParams(window.location.search);
     const token = queryParams.get('token');
     const rToken = queryParams.get('refresh_token');
@@ -148,10 +193,32 @@ function App() {
       }
 
       const res = await axios.post(`${BACKEND}/generate_playlist`, body);
-      setPlaylistUrl(res.data.playlist_url);
-      setSongs(res.data.songs_added);
-      setPlaylistName(res.data.playlist_name);
+      const nextPlaylistUrl = res.data.playlist_url;
+      const nextSongs = res.data.songs_added || [];
+      const nextPlaylistName = res.data.playlist_name || 'Your Soundtrack';
+
+      setPlaylistUrl(nextPlaylistUrl);
+      setSongs(nextSongs);
+      setPlaylistName(nextPlaylistName);
       setGuestMode(res.data.guest_mode);
+
+      const historyItem = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        playlistName: nextPlaylistName,
+        prompt: prompt.trim(),
+        playlistUrl: nextPlaylistUrl,
+        trackCount: nextSongs.length,
+        createdAt: new Date().toISOString()
+      };
+
+      setSoundtrackHistory((currentHistory) => {
+        const nextHistory = [
+          historyItem,
+          ...currentHistory.filter((item) => item.playlistUrl !== historyItem.playlistUrl)
+        ].slice(0, HISTORY_LIMIT);
+        writeSoundtrackHistory(nextHistory);
+        return nextHistory;
+      });
     } catch (err) {
       const message = err?.response?.data?.detail || err?.message || '';
       if (message.toLowerCase().includes('token expired') || message.toLowerCase().includes('spotify auth error')) {
@@ -159,7 +226,9 @@ function App() {
         setMode(isTestRoute ? null : 'guest');
         setAccessToken('');
         setRefreshToken('');
-        localStorage.clear();
+        localStorage.removeItem('spotify_access_token');
+        localStorage.removeItem('spotify_refresh_token');
+        localStorage.removeItem('spotify_token_timestamp');
       } else if (err?.response?.data?.error === 'rate_limited') {
         setError('Butterfly is taking a breather - too many playlists at once. Try again in a moment.');
       } else {
@@ -191,6 +260,8 @@ function App() {
   const appClasses = `app-shell font-body text-sage-900${keyboardOpen ? ' keyboard-open' : ''}${loading ? ' is-loading' : ''}`;
   const promptSummary = prompt.trim();
   const trackCountLabel = songs.length === 1 ? '1 song' : `${songs.length} songs`;
+  const visibleHistory = soundtrackHistory.slice(0, 4);
+  const getHistoryTrackLabel = (trackCount) => trackCount === 1 ? '1 song' : `${trackCount} songs`;
 
   return (
     <div className={appClasses}>
@@ -263,6 +334,37 @@ function App() {
                 spellCheck="true"
               />
             </section>
+
+            {visibleHistory.length > 0 && !loading && (
+              <section className="history-section" aria-labelledby="history-title">
+                <div className="history-heading">
+                  <h2 id="history-title">Recent soundtracks</h2>
+                  <span>{soundtrackHistory.length}</span>
+                </div>
+
+                <div className="history-list">
+                  {visibleHistory.map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.playlistUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="history-item"
+                      aria-label={`Open ${item.playlistName} on Spotify`}
+                    >
+                      <div className="history-copy">
+                        <span className="history-title">{item.playlistName}</span>
+                        <span className="history-prompt">{item.prompt}</span>
+                      </div>
+                      <div className="history-meta">
+                        <span>{getHistoryTrackLabel(item.trackCount)}</span>
+                        <span>{formatHistoryDate(item.createdAt)}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {loading && (
               <section className="creating-state" role="status" aria-live="polite">
