@@ -158,6 +158,8 @@ function App() {
 
   const hasPrompt = prompt.trim().length > 0;
   const appClasses = `app-shell font-body text-sage-900${keyboardOpen ? ' keyboard-open' : ''}${loading ? ' is-loading' : ''}`;
+  const promptSummary = prompt.trim();
+  const trackCountLabel = songs.length === 1 ? '1 song' : `${songs.length} songs`;
 
   return (
     <div className={appClasses}>
@@ -271,8 +273,16 @@ function App() {
         {playlistUrl && (
           <section className="result-screen">
             <div className="playlist-hero">
-              <p className="eyebrow">Your soundtrack</p>
+              <div className="playlist-kicker">
+                <p className="eyebrow">Your soundtrack</p>
+                {songs.length > 0 && <span className="track-count">{trackCountLabel}</span>}
+              </div>
               <h1 className="playlist-title">{playlistName || 'Your Soundtrack'}</h1>
+              {promptSummary && (
+                <p className="playlist-prompt">
+                  Made for: {promptSummary}
+                </p>
+              )}
               {guestMode && (
                 <p className="playlist-note">
                   Follow it on Spotify to save it to your library.
@@ -299,7 +309,8 @@ function App() {
                 rel="noopener noreferrer"
                 className="primary-button"
               >
-                Open in Spotify
+                <span className="spotify-dot" aria-hidden="true" />
+                Listen on Spotify
               </a>
               <button
                 type="button"
