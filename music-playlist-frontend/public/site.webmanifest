@@ -1,21 +1,26 @@
 {
-  "name": "Butterfly Music App",
+  "name": "Butterfly Music",
   "short_name": "Butterfly",
+  "description": "Turn a feeling, scene, or story into a Spotify soundtrack.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#f4f0e8",
+  "background_color": "#f4f0e8",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/web-app-manifest-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
-  ],
-  "theme_color": "#f4f0e8",
-  "background_color": "#f4f0e8",
-  "display": "standalone"
+  ]
 }
