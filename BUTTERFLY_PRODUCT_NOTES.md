@@ -10,6 +10,19 @@ Local notes on how Butterfly creates soundtracks, what works well, and where pro
 - Potential improvement: search with stricter Spotify query syntax, such as `track:"Cold Air" artist:"Natalie Imbruglia"`, then reject obvious karaoke/tribute/cover results before adding tracks.
 - If strict search misses too many songs, use a fallback strategy: try exact track and artist first, then relaxed query, then skip weak matches instead of adding misleading versions.
 
+## Friend-Ready Beta Plan
+
+1. Spotify track matching guardrails
+   - Use stricter Spotify queries before relaxed fallback.
+   - Score candidate tracks by title match, artist match, popularity, and bad-version keywords.
+   - Skip weak matches instead of adding misleading tracks.
+2. Sharing
+   - Add a lightweight share action on the result page.
+   - Prefer Web Share API on mobile, with copy-link fallback.
+3. Analytics
+   - Track generation success, song count, skipped tracks, share taps, and simple feedback.
+   - Avoid personal data; focus on product quality signals.
+
 ## Mobile Backlog
 
 - Add soundtrack sharing with either the Web Share API in the PWA or the native share sheet after Capacitor is added.
