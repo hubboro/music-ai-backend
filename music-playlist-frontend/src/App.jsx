@@ -3,6 +3,25 @@ import axios from 'axios';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
+const LOADING_STORIES = [
+  'Reading the mood.',
+  'Finding the first song.',
+  'Balancing familiar and unexpected.',
+  'Looking for the hidden thread.',
+  'Choosing the opening scene.',
+  'Tuning the emotional weather.',
+  'Skipping the obvious picks.',
+  'Letting the deeper cuts in.',
+  'Arranging the arc.',
+  'Sending it to Spotify.'
+];
+
+const getRandomLoadingStory = (currentStory = '') => {
+  const options = LOADING_STORIES.filter((story) => story !== currentStory);
+  const pool = options.length > 0 ? options : LOADING_STORIES;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
 function App() {
   const isTestRoute = window.location.pathname === '/test';
   const textareaRef = useRef(null);
@@ -15,6 +34,7 @@ function App() {
   const [playlistName, setPlaylistName] = useState('');
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingStory, setLoadingStory] = useState(() => getRandomLoadingStory());
   const [error, setError] = useState('');
   const [placeholder, setPlaceholder] = useState('a late summer evening, windows open, nowhere to be...');
   const [guestMode, setGuestMode] = useState(false);
@@ -97,6 +117,17 @@ function App() {
     textarea.style.height = 'auto';
     textarea.style.height = `${textarea.scrollHeight}px`;
   }, [prompt]);
+
+  useEffect(() => {
+    if (!loading) return undefined;
+
+    setLoadingStory((currentStory) => getRandomLoadingStory(currentStory));
+    const timer = window.setInterval(() => {
+      setLoadingStory((currentStory) => getRandomLoadingStory(currentStory));
+    }, 1800);
+
+    return () => window.clearInterval(timer);
+  }, [loading]);
 
   const handlePromptInput = (e) => {
     setPrompt(e.target.value);
@@ -240,7 +271,7 @@ function App() {
                 </div>
                 <div>
                   <p className="creating-title">Creating your soundtrack</p>
-                  <p className="creating-copy">Finding songs that fit the feeling.</p>
+                  <p className="creating-copy">{loadingStory}</p>
                 </div>
               </section>
             )}
