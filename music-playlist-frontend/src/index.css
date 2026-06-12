@@ -165,9 +165,17 @@
     @apply flex flex-col gap-2;
   }
 
+  .history-row {
+    @apply flex items-stretch gap-2;
+  }
+
   .history-item {
-    @apply flex min-h-[4.35rem] items-center justify-between gap-4 rounded-[1.15rem] border border-sage-100/70 px-3.5 py-3 text-left transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.985] active:bg-sage-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
+    @apply flex min-h-[4.35rem] min-w-0 flex-1 items-center justify-between gap-4 rounded-[1.15rem] border border-sage-100/70 px-3.5 py-3 text-left transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.985] active:bg-sage-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
     background-color: rgba(255, 252, 245, 0.62);
+  }
+
+  .history-remove {
+    @apply flex w-[4.65rem] shrink-0 items-center justify-center rounded-[1.15rem] border border-red-100 bg-red-50/70 px-2 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-red-500 transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.985] active:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
   }
 
   .history-copy {

@@ -258,6 +258,14 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleRemoveHistoryItem = (itemId) => {
+    setSoundtrackHistory((currentHistory) => {
+      const nextHistory = currentHistory.filter((item) => item.id !== itemId);
+      writeSoundtrackHistory(nextHistory);
+      return nextHistory;
+    });
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('spotify_access_token');
     localStorage.removeItem('spotify_refresh_token');
@@ -359,22 +367,31 @@ function App() {
 
                 <div className="history-list">
                   {visibleHistory.map((item) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      onClick={() => handleOpenHistoryItem(item)}
-                      className="history-item"
-                      aria-label={`Open ${item.playlistName} result`}
-                    >
-                      <div className="history-copy">
-                        <span className="history-title">{item.playlistName}</span>
-                        <span className="history-prompt">{item.prompt}</span>
-                      </div>
-                      <div className="history-meta">
-                        <span>{getHistoryTrackLabel(item.trackCount)}</span>
-                        <span>{formatHistoryDate(item.createdAt)}</span>
-                      </div>
-                    </button>
+                    <div key={item.id} className="history-row">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenHistoryItem(item)}
+                        className="history-item"
+                        aria-label={`Open ${item.playlistName} result`}
+                      >
+                        <div className="history-copy">
+                          <span className="history-title">{item.playlistName}</span>
+                          <span className="history-prompt">{item.prompt}</span>
+                        </div>
+                        <div className="history-meta">
+                          <span>{getHistoryTrackLabel(item.trackCount)}</span>
+                          <span>{formatHistoryDate(item.createdAt)}</span>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHistoryItem(item.id)}
+                        className="history-remove"
+                        aria-label={`Remove ${item.playlistName} from history`}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   ))}
                 </div>
               </section>
