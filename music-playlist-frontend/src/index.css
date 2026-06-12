@@ -143,6 +143,49 @@
     animation: lift-in 260ms ease-out both;
   }
 
+  .history-section {
+    @apply rounded-[1.7rem] border border-sage-100/80 px-4 py-4 shadow-[0_14px_36px_rgba(46,65,41,0.05)];
+    background-color: rgba(250, 248, 243, 0.58);
+    animation: lift-in 240ms ease-out both;
+  }
+
+  .history-heading {
+    @apply mb-3 flex items-center justify-between gap-4;
+  }
+
+  .history-heading h2 {
+    @apply text-xs font-bold uppercase tracking-[0.16em] text-sage-400;
+  }
+
+  .history-heading span {
+    @apply rounded-full bg-sage-100 px-2 py-0.5 text-[0.68rem] font-bold text-sage-500;
+  }
+
+  .history-list {
+    @apply flex flex-col gap-2;
+  }
+
+  .history-item {
+    @apply flex min-h-[4.35rem] items-center justify-between gap-4 rounded-[1.15rem] border border-sage-100/70 px-3.5 py-3 text-left transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.985] active:bg-sage-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
+    background-color: rgba(255, 252, 245, 0.62);
+  }
+
+  .history-copy {
+    @apply min-w-0 flex-1;
+  }
+
+  .history-title {
+    @apply block truncate text-sm font-semibold leading-5 text-sage-900;
+  }
+
+  .history-prompt {
+    @apply mt-1 block truncate text-xs italic leading-4 text-sage-500;
+  }
+
+  .history-meta {
+    @apply flex shrink-0 flex-col items-end gap-1 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-sage-300;
+  }
+
   .pulse-mark {
     @apply grid h-12 w-12 shrink-0 place-items-center rounded-full bg-sage-100;
     animation: soft-pulse 1.8s ease-in-out infinite;
