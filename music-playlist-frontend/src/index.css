@@ -19,6 +19,7 @@
   html {
     min-height: 100%;
     background: #f4f0e8;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -55,6 +56,23 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  .app-shell.keyboard-open .app-main {
+    padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  }
+
+  .app-shell.keyboard-open .bottom-action {
+    @apply pt-3;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .app-shell.keyboard-open .composer-screen {
+    @apply pt-2;
+  }
+
+  .app-shell.keyboard-open .composer-panel {
+    @apply pt-5;
+  }
+
   .app-header {
     @apply sticky top-0 z-20 flex items-center justify-between px-5 pb-3 pt-4;
     background: linear-gradient(180deg, rgba(244, 240, 232, 0.96) 0%, rgba(244, 240, 232, 0.74) 72%, rgba(244, 240, 232, 0) 100%);
@@ -62,11 +80,11 @@
   }
 
   .brand-button {
-    @apply -ml-1 inline-flex h-12 w-12 items-center justify-center rounded-full transition duration-200 active:scale-95;
+    @apply -ml-1 inline-flex h-12 w-12 items-center justify-center rounded-full transition duration-200 ease-out active:scale-90 active:bg-sage-100/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
   }
 
   .secondary-action {
-    @apply rounded-full px-3 py-2 text-xs font-semibold text-sage-500 transition duration-200 active:scale-95 active:bg-sage-100/70;
+    @apply rounded-full px-3 py-2 text-xs font-semibold text-sage-500 transition duration-200 ease-out active:scale-95 active:bg-sage-100/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
   }
 
   .app-main {
@@ -93,11 +111,15 @@
   }
 
   .composer-screen {
-    @apply gap-6 pt-8;
+    @apply gap-6 pt-8 transition-[padding] duration-300 ease-out;
   }
 
   .composer-panel {
-    @apply flex flex-1 flex-col pt-10;
+    @apply flex flex-1 flex-col pt-10 transition-[padding,opacity,transform] duration-300 ease-out;
+  }
+
+  .app-shell.is-loading .composer-panel {
+    @apply opacity-80;
   }
 
   .composer-label {
@@ -106,11 +128,19 @@
 
   .composer-textarea {
     @apply mt-8 min-h-[14rem] w-full flex-1 resize-none border-0 bg-transparent font-display text-[1.55rem] italic leading-snug text-sage-900 outline-none placeholder:text-sage-300 disabled:opacity-70;
+    max-height: min(42svh, 23rem);
+    overflow-y: auto;
+    transition: opacity 180ms ease, min-height 260ms ease;
+  }
+
+  .composer-textarea:focus {
+    @apply placeholder:text-sage-300/70;
   }
 
   .creating-state {
     @apply flex items-center gap-4 rounded-2xl border border-sage-100/80 p-4 shadow-[0_18px_50px_rgba(46,65,41,0.08)];
     background-color: rgba(250, 248, 243, 0.72);
+    animation: lift-in 260ms ease-out both;
   }
 
   .pulse-mark {
@@ -128,21 +158,26 @@
 
   .toast-message {
     @apply rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm leading-5 text-red-700;
+    animation: lift-in 220ms ease-out both;
   }
 
   .bottom-action {
-    @apply fixed inset-x-0 bottom-0 z-30 mx-auto flex w-full max-w-md flex-col gap-3 px-5 pb-5 pt-4;
+    @apply fixed inset-x-0 bottom-0 z-30 mx-auto flex w-full max-w-md flex-col gap-3 px-5 pb-5 pt-4 transition-[padding,transform] duration-300 ease-out;
     padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
     background: linear-gradient(180deg, rgba(244, 240, 232, 0) 0%, rgba(244, 240, 232, 0.94) 32%, rgba(244, 240, 232, 0.99) 100%);
     backdrop-filter: blur(18px);
   }
 
   .primary-button {
-    @apply inline-flex min-h-14 w-full items-center justify-center rounded-full bg-sage-600 px-6 text-center text-base font-semibold text-white shadow-[0_16px_36px_rgba(74,107,67,0.24)] transition duration-200 active:scale-[0.985] active:bg-sage-700 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply relative inline-flex min-h-14 w-full items-center justify-center overflow-hidden rounded-full bg-sage-600 px-6 text-center text-base font-semibold text-white shadow-[0_16px_36px_rgba(74,107,67,0.24)] transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.975] active:bg-sage-700 active:shadow-[0_8px_20px_rgba(74,107,67,0.22)] disabled:cursor-not-allowed disabled:opacity-45 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-300 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
+  }
+
+  .primary-button::after {
+    @apply pointer-events-none absolute inset-x-6 top-0 h-px bg-white/35 content-[''];
   }
 
   .quiet-button {
-    @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-sage-200/80 px-6 text-center text-sm font-semibold text-sage-700 transition duration-200 active:scale-[0.985] active:bg-sage-100;
+    @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-sage-200/80 px-6 text-center text-sm font-semibold text-sage-700 transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.975] active:bg-sage-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
     background-color: rgba(250, 248, 243, 0.6);
   }
 
@@ -151,7 +186,7 @@
   }
 
   .button-with-spinner {
-    @apply inline-flex items-center gap-2;
+    @apply inline-flex min-w-[6.25rem] items-center justify-center gap-2;
   }
 
   .spinner {
@@ -165,6 +200,7 @@
 
   .playlist-hero {
     @apply rounded-[2rem] bg-sage-900 px-6 py-7 text-cream shadow-[0_22px_54px_rgba(30,45,27,0.22)];
+    animation: rise-in 300ms ease-out both;
   }
 
   .playlist-hero .eyebrow {
@@ -186,6 +222,7 @@
   .track-row {
     @apply flex min-h-[4.25rem] items-center gap-4 rounded-[1.4rem] border border-sage-100/70 px-4 py-3 shadow-[0_12px_34px_rgba(46,65,41,0.05)];
     background-color: rgba(250, 248, 243, 0.55);
+    animation: rise-in 260ms ease-out both;
   }
 
   .track-number {
@@ -209,6 +246,28 @@
   }
 }
 
+@keyframes lift-in {
+  from {
+    transform: translateY(0.4rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(0.75rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 @keyframes soft-pulse {
   0%,
   100% {
@@ -228,5 +287,20 @@
 
   .bottom-action {
     @apply absolute;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
