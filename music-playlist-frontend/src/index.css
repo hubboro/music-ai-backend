@@ -323,6 +323,23 @@
     @apply gap-2;
   }
 
+  .share-button {
+    @apply gap-2;
+  }
+
+  .share-button svg {
+    @apply h-4 w-4;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.9;
+  }
+
+  .share-status {
+    @apply min-h-5 text-center text-xs font-semibold text-sage-500;
+  }
+
   .spotify-dot {
     @apply mr-2 h-2.5 w-2.5 rounded-full bg-[#1db954] shadow-[0_0_0_4px_rgba(29,185,84,0.16)];
   }

@@ -17,12 +17,12 @@ Local notes on how Butterfly creates soundtracks, what works well, and where pro
    - Score candidate tracks by title match, artist match, popularity, and bad-version keywords.
    - Skip weak matches instead of adding misleading tracks.
 2. Sharing
-   - Add a lightweight share action on the result page.
-   - Prefer Web Share API on mobile, with copy-link fallback.
+   - Added a lightweight share action on the result page.
+   - Uses Web Share API on mobile, with copy-link fallback.
 3. Analytics
    - Track generation success, song count, skipped tracks, share taps, and simple feedback.
    - Avoid personal data; focus on product quality signals.
 
 ## Mobile Backlog
 
-- Add soundtrack sharing with either the Web Share API in the PWA or the native share sheet after Capacitor is added.
+- Add native share sheet integration after Capacitor is added.
