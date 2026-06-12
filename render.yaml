@@ -6,10 +6,12 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: OPENAI_API_KEY
-        value: your-openai-key-here
+        sync: false
       - key: SPOTIFY_CLIENT_ID
-        value: your-spotify-client-id
+        sync: false
       - key: SPOTIFY_CLIENT_SECRET
-        value: your-spotify-client-secret
+        sync: false
+      - key: APP_SPOTIFY_REFRESH_TOKEN
+        sync: false
       - key: SPOTIFY_REDIRECT_URI
-        value: https://butterfly-music-app.onrender.com/callback
+        value: https://butterfly-backend-qcay.onrender.com/callback
