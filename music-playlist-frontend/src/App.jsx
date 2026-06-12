@@ -36,6 +36,7 @@ const readSoundtrackHistory = () => {
         playlistName: item.playlistName,
         prompt: item.prompt || 'Saved soundtrack',
         playlistUrl: item.playlistUrl,
+        songs: Array.isArray(item.songs) ? item.songs : [],
         trackCount: Number.isFinite(item.trackCount) ? item.trackCount : 0,
         createdAt: item.createdAt || new Date().toISOString()
       }))
@@ -207,6 +208,7 @@ function App() {
         playlistName: nextPlaylistName,
         prompt: prompt.trim(),
         playlistUrl: nextPlaylistUrl,
+        songs: nextSongs,
         trackCount: nextSongs.length,
         createdAt: new Date().toISOString()
       };
@@ -246,6 +248,16 @@ function App() {
     setError('');
   };
 
+  const handleOpenHistoryItem = (item) => {
+    setPlaylistUrl(item.playlistUrl);
+    setPlaylistName(item.playlistName);
+    setSongs(item.songs || []);
+    setPrompt(item.prompt || '');
+    setGuestMode(true);
+    setError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('spotify_access_token');
     localStorage.removeItem('spotify_refresh_token');
@@ -259,7 +271,10 @@ function App() {
   const hasPrompt = prompt.trim().length > 0;
   const appClasses = `app-shell font-body text-sage-900${keyboardOpen ? ' keyboard-open' : ''}${loading ? ' is-loading' : ''}`;
   const promptSummary = prompt.trim();
-  const trackCountLabel = songs.length === 1 ? '1 song' : `${songs.length} songs`;
+  const currentHistoryItem = soundtrackHistory.find((item) => item.playlistUrl === playlistUrl);
+  const displayedTrackCount = songs.length || currentHistoryItem?.trackCount || 0;
+  const displayedTrackCountLabel = displayedTrackCount === 1 ? '1 song' : `${displayedTrackCount} songs`;
+  const hasTrackRows = songs.length > 0;
   const visibleHistory = soundtrackHistory.slice(0, 4);
   const getHistoryTrackLabel = (trackCount) => trackCount === 1 ? '1 song' : `${trackCount} songs`;
 
@@ -344,13 +359,12 @@ function App() {
 
                 <div className="history-list">
                   {visibleHistory.map((item) => (
-                    <a
+                    <button
+                      type="button"
                       key={item.id}
-                      href={item.playlistUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={() => handleOpenHistoryItem(item)}
                       className="history-item"
-                      aria-label={`Open ${item.playlistName} on Spotify`}
+                      aria-label={`Open ${item.playlistName} result`}
                     >
                       <div className="history-copy">
                         <span className="history-title">{item.playlistName}</span>
@@ -360,7 +374,7 @@ function App() {
                         <span>{getHistoryTrackLabel(item.trackCount)}</span>
                         <span>{formatHistoryDate(item.createdAt)}</span>
                       </div>
-                    </a>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -408,7 +422,7 @@ function App() {
             <div className="playlist-hero">
               <div className="playlist-kicker">
                 <p className="eyebrow">Your soundtrack</p>
-                {songs.length > 0 && <span className="track-count">{trackCountLabel}</span>}
+                {displayedTrackCount > 0 && <span className="track-count">{displayedTrackCountLabel}</span>}
               </div>
               <h1 className="playlist-title">{playlistName || 'Your Soundtrack'}</h1>
               {promptSummary && (
@@ -423,17 +437,23 @@ function App() {
               )}
             </div>
 
-            <ol className="track-list" aria-label="Songs in your soundtrack">
-              {songs.map((song, idx) => (
-                <li key={`${song.title}-${song.artist}-${idx}`} className="track-row">
-                  <span className="track-number">{String(idx + 1).padStart(2, '0')}</span>
-                  <div className="track-copy">
-                    <span className="track-title">{song.title}</span>
-                    <span className="track-artist">{song.artist}</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            {hasTrackRows ? (
+              <ol className="track-list" aria-label="Songs in your soundtrack">
+                {songs.map((song, idx) => (
+                  <li key={`${song.title}-${song.artist}-${idx}`} className="track-row">
+                    <span className="track-number">{String(idx + 1).padStart(2, '0')}</span>
+                    <div className="track-copy">
+                      <span className="track-title">{song.title}</span>
+                      <span className="track-artist">{song.artist}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="saved-result-note">
+                <p>This soundtrack was saved before track details were stored on device.</p>
+              </div>
+            )}
 
             <div className="bottom-action result-actions">
               <a

@@ -296,6 +296,12 @@
     @apply mt-1 block truncate text-xs font-medium leading-4 text-sage-500;
   }
 
+  .saved-result-note {
+    @apply rounded-[1.35rem] border border-sage-100/80 px-4 py-4 text-sm leading-6 text-sage-500 shadow-[0_10px_26px_rgba(46,65,41,0.045)];
+    background-color: rgba(250, 248, 243, 0.68);
+    animation: rise-in 260ms ease-out both;
+  }
+
   .result-actions {
     @apply gap-2;
   }
