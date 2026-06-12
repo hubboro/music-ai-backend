@@ -389,7 +389,13 @@ function App() {
                         className="history-remove"
                         aria-label={`Remove ${item.playlistName} from history`}
                       >
-                        <span aria-hidden="true">×</span>
+                        <svg aria-hidden="true" viewBox="0 0 24 24">
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                          <path d="M5 7h14" />
+                          <path d="M8 7l1-3h6l1 3" />
+                          <path d="M7 7l1 14h8l1-14" />
+                        </svg>
                       </button>
                     </div>
                   ))}
