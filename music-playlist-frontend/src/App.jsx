@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import axios from 'axios';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 
 function App() {
   const isTestRoute = window.location.pathname === '/test';
+  const textareaRef = useRef(null);
   const [mode, setMode] = useState(isTestRoute ? null : 'guest');
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
@@ -57,10 +59,47 @@ function App() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || playlistUrl || mode === null) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const timer = window.setTimeout(() => {
+      textarea.focus({ preventScroll: prefersReducedMotion });
+    }, 280);
+
+    return () => window.clearTimeout(timer);
+  }, [mode, playlistUrl]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return undefined;
+
+    const handleViewportChange = () => {
+      const heightDifference = window.innerHeight - viewport.height;
+      setKeyboardOpen(heightDifference > 120);
+    };
+
+    handleViewportChange();
+    viewport.addEventListener('resize', handleViewportChange);
+    viewport.addEventListener('scroll', handleViewportChange);
+
+    return () => {
+      viewport.removeEventListener('resize', handleViewportChange);
+      viewport.removeEventListener('scroll', handleViewportChange);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [prompt]);
+
   const handlePromptInput = (e) => {
     setPrompt(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${e.target.scrollHeight}px`;
   };
 
   const handleSubmit = async (e) => {
@@ -118,9 +157,10 @@ function App() {
   };
 
   const hasPrompt = prompt.trim().length > 0;
+  const appClasses = `app-shell font-body text-sage-900${keyboardOpen ? ' keyboard-open' : ''}${loading ? ' is-loading' : ''}`;
 
   return (
-    <div className="app-shell font-body text-sage-900">
+    <div className={appClasses}>
       <header className="app-header">
         <button
           type="button"
@@ -174,6 +214,7 @@ function App() {
               </label>
 
               <textarea
+                ref={textareaRef}
                 id="playlist-prompt"
                 className="composer-textarea"
                 placeholder={placeholder}
