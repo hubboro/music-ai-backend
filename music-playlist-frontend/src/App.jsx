@@ -25,7 +25,7 @@ const LOADING_STORIES = [
   'Skipping the obvious picks.',
   'Letting the deeper cuts in.',
   'Arranging the arc.',
-  'Sending it to Spotify.'
+  'Matching songs that actually exist.'
 ];
 
 const getRandomLoadingStory = (currentStory = '') => {
@@ -56,6 +56,15 @@ const normalizeSoundtrackUrl = (url) => {
 const getCurrentSoundtrackPageUrl = () => {
   const slug = getShareSlugFromPath();
   return slug ? getLocalSoundtrackUrl(decodeURIComponent(slug)) : '';
+};
+
+const getSoundtrackSlugFromUrl = (url) => {
+  if (!url) return '';
+  try {
+    return decodeURIComponent(new URL(url).pathname.match(/^\/s\/([^/]+)/)?.[1] || '');
+  } catch {
+    return '';
+  }
 };
 
 const showSoundtrackPageInAddressBar = (soundtrackPageUrl) => {
@@ -100,6 +109,12 @@ const writeSoundtrackHistory = (history) => {
   } catch {
     // History is a convenience feature; playlist creation should still succeed.
   }
+};
+
+const isSameHistoryItem = (item, nextItem) => {
+  if (nextItem.soundtrackUrl && item.soundtrackUrl === nextItem.soundtrackUrl) return true;
+  if (nextItem.playlistUrl && item.playlistUrl === nextItem.playlistUrl) return true;
+  return item.playlistName === nextItem.playlistName && item.prompt === nextItem.prompt;
 };
 
 const copyTextToClipboard = async (text) => {
@@ -167,6 +182,8 @@ function App() {
   const [soundtrackHistory, setSoundtrackHistory] = useState([]);
   const [shareStatus, setShareStatus] = useState('');
   const [creatingShareLink, setCreatingShareLink] = useState(false);
+  const [creatingSpotifyPlaylist, setCreatingSpotifyPlaylist] = useState(false);
+  const [spotifyStatus, setSpotifyStatus] = useState('');
 
   useEffect(() => {
     setSoundtrackHistory(readSoundtrackHistory());
@@ -305,6 +322,7 @@ function App() {
     setPlaylistUrl('');
     setSoundtrackUrl('');
     setSongs([]);
+    setSpotifyStatus('');
 
     try {
       const body = { prompt };
@@ -314,7 +332,7 @@ function App() {
       }
 
       const res = await axios.post(`${BACKEND}/generate_playlist`, body);
-      const nextPlaylistUrl = res.data.playlist_url;
+      const nextPlaylistUrl = res.data.playlist_url || '';
       const nextSoundtrackUrl = getLocalSoundtrackUrl(res.data.soundtrack_slug)
         || normalizeSoundtrackUrl(res.data.soundtrack_url);
       const nextSongs = res.data.songs_added || [];
@@ -341,10 +359,7 @@ function App() {
       setSoundtrackHistory((currentHistory) => {
         const nextHistory = [
           historyItem,
-          ...currentHistory.filter((item) => (
-            item.playlistUrl !== historyItem.playlistUrl
-            && (!historyItem.soundtrackUrl || item.soundtrackUrl !== historyItem.soundtrackUrl)
-          ))
+          ...currentHistory.filter((item) => !isSameHistoryItem(item, historyItem))
         ].slice(0, HISTORY_LIMIT);
         writeSoundtrackHistory(nextHistory);
         return nextHistory;
@@ -376,6 +391,7 @@ function App() {
     setPrompt('');
     setError('');
     setShareStatus('');
+    setSpotifyStatus('');
     if (window.location.pathname.startsWith('/s/')) {
       window.history.replaceState({}, document.title, '/');
     }
@@ -383,7 +399,7 @@ function App() {
 
   const handleOpenHistoryItem = (item) => {
     const nextSoundtrackUrl = item.soundtrackUrl || '';
-    setPlaylistUrl(item.playlistUrl);
+    setPlaylistUrl(item.playlistUrl || '');
     setSoundtrackUrl(nextSoundtrackUrl);
     showSoundtrackPageInAddressBar(nextSoundtrackUrl);
     setPlaylistName(item.playlistName);
@@ -392,6 +408,7 @@ function App() {
     setGuestMode(true);
     setError('');
     setShareStatus('');
+    setSpotifyStatus('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -442,7 +459,8 @@ function App() {
         showSoundtrackPageInAddressBar(shareTargetUrl);
         setSoundtrackHistory((currentHistory) => {
           const nextHistory = currentHistory.map((item) => (
-            item.playlistUrl === playlistUrl
+            (playlistUrl && item.playlistUrl === playlistUrl)
+              || (item.playlistName === playlistName && item.prompt === prompt.trim())
               ? { ...item, soundtrackUrl: shareTargetUrl }
               : item
           ));
@@ -486,12 +504,90 @@ function App() {
     }
   };
 
+  const handleSpotifyAction = async () => {
+    if (playlistUrl) {
+      window.open(playlistUrl, '_blank');
+      return;
+    }
+
+    if (!playlistName || songs.length === 0) {
+      setSpotifyStatus('Make a soundtrack first');
+      return;
+    }
+
+    setCreatingSpotifyPlaylist(true);
+    setSpotifyStatus('Creating Spotify playlist');
+    setError('');
+
+    try {
+      const res = await axios.post(`${BACKEND}/spotify_playlist`, {
+        prompt: prompt.trim(),
+        playlist_name: playlistName,
+        songs,
+        soundtrack_slug: getSoundtrackSlugFromUrl(soundtrackUrl) || decodeURIComponent(shareSlug || ''),
+        access_token: mode === 'login' ? accessToken : null,
+        refresh_token: mode === 'login' ? refreshToken : null
+      });
+      const nextPlaylistUrl = res.data.playlist_url || '';
+      const nextSongs = res.data.songs_added || songs;
+
+      if (!nextPlaylistUrl) {
+        setSpotifyStatus('Could not create Spotify playlist');
+        return;
+      }
+
+      setPlaylistUrl(nextPlaylistUrl);
+      setSongs(nextSongs);
+      setSpotifyStatus('Opening Spotify');
+      setSoundtrackHistory((currentHistory) => {
+        const nextHistory = currentHistory.map((item) => {
+          if (
+            (soundtrackUrl && item.soundtrackUrl === soundtrackUrl)
+            || (!soundtrackUrl && item.playlistName === playlistName && item.prompt === prompt.trim())
+          ) {
+            return {
+              ...item,
+              playlistUrl: nextPlaylistUrl,
+              songs: nextSongs,
+              trackCount: nextSongs.length
+            };
+          }
+          return item;
+        });
+        writeSoundtrackHistory(nextHistory);
+        return nextHistory;
+      });
+
+      const openedWindow = window.open(nextPlaylistUrl, '_blank');
+      if (!openedWindow) {
+        window.location.assign(nextPlaylistUrl);
+      }
+    } catch (err) {
+      const message = err?.response?.data?.detail || err?.response?.data?.error || err?.message || '';
+      if (message.toLowerCase().includes('token expired') || message.toLowerCase().includes('spotify auth error')) {
+        setSpotifyStatus('Spotify session expired');
+        setMode(isTestRoute ? null : 'guest');
+        setAccessToken('');
+        setRefreshToken('');
+        localStorage.removeItem('spotify_access_token');
+        localStorage.removeItem('spotify_refresh_token');
+        localStorage.removeItem('spotify_token_timestamp');
+      } else if (err?.response?.data?.error === 'rate_limited') {
+        setSpotifyStatus('Spotify is busy. Try again soon.');
+      } else {
+        setSpotifyStatus('Could not create Spotify playlist');
+      }
+    } finally {
+      setCreatingSpotifyPlaylist(false);
+    }
+  };
+
   const hasPrompt = prompt.trim().length > 0;
   const appClasses = `app-shell font-body text-sage-900${keyboardOpen ? ' keyboard-open' : ''}${loading ? ' is-loading' : ''}`;
   const promptSummary = prompt.trim();
-  const hasResult = Boolean(playlistUrl || soundtrackUrl);
+  const hasResult = Boolean(playlistUrl || soundtrackUrl || (playlistName && songs.length > 0));
   const currentHistoryItem = soundtrackHistory.find((item) => (
-    item.playlistUrl === playlistUrl || (soundtrackUrl && item.soundtrackUrl === soundtrackUrl)
+    (playlistUrl && item.playlistUrl === playlistUrl) || (soundtrackUrl && item.soundtrackUrl === soundtrackUrl)
   ));
   const displayedTrackCount = songs.length || currentHistoryItem?.trackCount || 0;
   const displayedTrackCountLabel = displayedTrackCount === 1 ? '1 song' : `${displayedTrackCount} songs`;
@@ -680,7 +776,7 @@ function App() {
               )}
               {guestMode && (
                 <p className="playlist-note">
-                  Follow it on Spotify to save it to your library.
+                  Create a Spotify playlist only when you are ready to listen or save it.
                 </p>
               )}
             </div>
@@ -704,16 +800,28 @@ function App() {
             )}
 
             <div className="bottom-action result-actions">
-              {playlistUrl && (
-                <a
-                  href={playlistUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="primary-button"
-                >
-                  <span className="spotify-dot" aria-hidden="true" />
-                  Listen on Spotify
-                </a>
+              <button
+                type="button"
+                onClick={handleSpotifyAction}
+                disabled={creatingSpotifyPlaylist || songs.length === 0}
+                className="primary-button"
+              >
+                {creatingSpotifyPlaylist ? (
+                  <span className="button-with-spinner">
+                    <span className="spinner" aria-hidden="true" />
+                    Creating
+                  </span>
+                ) : (
+                  <>
+                    <span className="spotify-dot" aria-hidden="true" />
+                    {playlistUrl ? 'Listen on Spotify' : 'Create Spotify playlist'}
+                  </>
+                )}
+              </button>
+              {spotifyStatus && (
+                <p className="share-status" role="status" aria-live="polite">
+                  {spotifyStatus}
+                </p>
               )}
               <button
                 type="button"
