@@ -30,12 +30,13 @@ const readSoundtrackHistory = () => {
     if (!Array.isArray(storedHistory)) return [];
 
     return storedHistory
-      .filter((item) => item?.playlistUrl && item?.playlistName)
+      .filter((item) => (item?.playlistUrl || item?.soundtrackUrl) && item?.playlistName)
       .map((item) => ({
-        id: item.id || item.playlistUrl,
+        id: item.id || item.soundtrackUrl || item.playlistUrl,
         playlistName: item.playlistName,
         prompt: item.prompt || 'Saved soundtrack',
         playlistUrl: item.playlistUrl,
+        soundtrackUrl: item.soundtrackUrl || '',
         songs: Array.isArray(item.songs) ? item.songs : [],
         trackCount: Number.isFinite(item.trackCount) ? item.trackCount : 0,
         createdAt: item.createdAt || new Date().toISOString()
@@ -99,6 +100,7 @@ const formatHistoryDate = (dateString) => {
 
 function App() {
   const isTestRoute = window.location.pathname === '/test';
+  const shareSlug = window.location.pathname.match(/^\/s\/([^/]+)/)?.[1] || '';
   const textareaRef = useRef(null);
   const [mode, setMode] = useState(isTestRoute ? null : 'guest');
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -106,9 +108,11 @@ function App() {
   const [accessToken, setAccessToken] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
   const [playlistUrl, setPlaylistUrl] = useState('');
+  const [soundtrackUrl, setSoundtrackUrl] = useState(shareSlug ? `${window.location.origin}/s/${shareSlug}` : '');
   const [playlistName, setPlaylistName] = useState('');
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingSavedSoundtrack, setLoadingSavedSoundtrack] = useState(Boolean(shareSlug));
   const [loadingStory, setLoadingStory] = useState(() => getRandomLoadingStory());
   const [error, setError] = useState('');
   const [placeholder, setPlaceholder] = useState('a late summer evening, windows open, nowhere to be...');
@@ -157,6 +161,40 @@ function App() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!shareSlug) return undefined;
+
+    let cancelled = false;
+    setLoadingSavedSoundtrack(true);
+    setError('');
+
+    axios.get(`${BACKEND}/soundtracks/${shareSlug}`)
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data || {};
+        const savedSongs = Array.isArray(data.songs) ? data.songs : [];
+        const nextSoundtrackUrl = `${window.location.origin}/s/${data.slug || shareSlug}`;
+
+        setPlaylistName(data.playlist_name || 'Your Soundtrack');
+        setPlaylistUrl(data.spotify_url || '');
+        setSoundtrackUrl(nextSoundtrackUrl);
+        setSongs(savedSongs);
+        setPrompt(data.prompt || '');
+        setGuestMode(true);
+        setMode('guest');
+      })
+      .catch(() => {
+        if (!cancelled) setError('This soundtrack could not be found.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSavedSoundtrack(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shareSlug]);
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -217,6 +255,7 @@ function App() {
     setLoading(true);
     setError('');
     setPlaylistUrl('');
+    setSoundtrackUrl('');
     setSongs([]);
 
     try {
@@ -228,10 +267,12 @@ function App() {
 
       const res = await axios.post(`${BACKEND}/generate_playlist`, body);
       const nextPlaylistUrl = res.data.playlist_url;
+      const nextSoundtrackUrl = res.data.soundtrack_url || '';
       const nextSongs = res.data.songs_added || [];
       const nextPlaylistName = res.data.playlist_name || 'Your Soundtrack';
 
       setPlaylistUrl(nextPlaylistUrl);
+      setSoundtrackUrl(nextSoundtrackUrl);
       setSongs(nextSongs);
       setPlaylistName(nextPlaylistName);
       setGuestMode(res.data.guest_mode);
@@ -241,6 +282,7 @@ function App() {
         playlistName: nextPlaylistName,
         prompt: prompt.trim(),
         playlistUrl: nextPlaylistUrl,
+        soundtrackUrl: nextSoundtrackUrl,
         songs: nextSongs,
         trackCount: nextSongs.length,
         createdAt: new Date().toISOString()
@@ -249,7 +291,10 @@ function App() {
       setSoundtrackHistory((currentHistory) => {
         const nextHistory = [
           historyItem,
-          ...currentHistory.filter((item) => item.playlistUrl !== historyItem.playlistUrl)
+          ...currentHistory.filter((item) => (
+            item.playlistUrl !== historyItem.playlistUrl
+            && (!historyItem.soundtrackUrl || item.soundtrackUrl !== historyItem.soundtrackUrl)
+          ))
         ].slice(0, HISTORY_LIMIT);
         writeSoundtrackHistory(nextHistory);
         return nextHistory;
@@ -276,14 +321,19 @@ function App() {
 
   const handleReset = () => {
     setPlaylistUrl('');
+    setSoundtrackUrl('');
     setSongs([]);
     setPrompt('');
     setError('');
     setShareStatus('');
+    if (window.location.pathname.startsWith('/s/')) {
+      window.history.replaceState({}, document.title, '/');
+    }
   };
 
   const handleOpenHistoryItem = (item) => {
     setPlaylistUrl(item.playlistUrl);
+    setSoundtrackUrl(item.soundtrackUrl || '');
     setPlaylistName(item.playlistName);
     setSongs(item.songs || []);
     setPrompt(item.prompt || '');
@@ -312,7 +362,8 @@ function App() {
   };
 
   const handleShare = async () => {
-    if (!playlistUrl) return;
+    const shareTargetUrl = soundtrackUrl || playlistUrl;
+    if (!shareTargetUrl) return;
 
     const shareTitle = playlistName || 'Butterfly soundtrack';
     const shareText = prompt.trim()
@@ -321,31 +372,35 @@ function App() {
     const shareData = {
       title: shareTitle,
       text: shareText,
-      url: playlistUrl
+      url: shareTargetUrl
     };
+    const failedShareStatus = soundtrackUrl ? 'Share from browser menu' : 'Open Spotify to share';
 
     try {
       if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
         setShareStatus('Shared');
       } else if (navigator.share) {
-        await navigator.share({ title: shareTitle, text: shareText, url: playlistUrl });
+        await navigator.share({ title: shareTitle, text: shareText, url: shareTargetUrl });
         setShareStatus('Shared');
       } else {
-        const copied = await copyTextToClipboard(playlistUrl);
-        setShareStatus(copied ? 'Link copied' : 'Open Spotify to share');
+        const copied = await copyTextToClipboard(shareTargetUrl);
+        setShareStatus(copied ? 'Link copied' : failedShareStatus);
       }
     } catch (err) {
       if (err?.name === 'AbortError') return;
-      const copied = await copyTextToClipboard(playlistUrl);
-      setShareStatus(copied ? 'Link copied' : 'Open Spotify to share');
+      const copied = await copyTextToClipboard(shareTargetUrl);
+      setShareStatus(copied ? 'Link copied' : failedShareStatus);
     }
   };
 
   const hasPrompt = prompt.trim().length > 0;
   const appClasses = `app-shell font-body text-sage-900${keyboardOpen ? ' keyboard-open' : ''}${loading ? ' is-loading' : ''}`;
   const promptSummary = prompt.trim();
-  const currentHistoryItem = soundtrackHistory.find((item) => item.playlistUrl === playlistUrl);
+  const hasResult = Boolean(playlistUrl || soundtrackUrl);
+  const currentHistoryItem = soundtrackHistory.find((item) => (
+    item.playlistUrl === playlistUrl || (soundtrackUrl && item.soundtrackUrl === soundtrackUrl)
+  ));
   const displayedTrackCount = songs.length || currentHistoryItem?.trackCount || 0;
   const displayedTrackCountLabel = displayedTrackCount === 1 ? '1 song' : `${displayedTrackCount} songs`;
   const hasTrackRows = songs.length > 0;
@@ -398,7 +453,19 @@ function App() {
           </section>
         )}
 
-        {mode !== null && !playlistUrl && (
+        {loadingSavedSoundtrack && !hasResult && (
+          <section className="creating-state" role="status" aria-live="polite">
+            <div className="pulse-mark">
+              <img src="/butterfly-logo.png" alt="" className="h-8 w-8" />
+            </div>
+            <div>
+              <p className="creating-title">Opening soundtrack</p>
+              <p className="creating-copy">Loading the saved tracklist.</p>
+            </div>
+          </section>
+        )}
+
+        {mode !== null && !hasResult && !loadingSavedSoundtrack && (
           <form onSubmit={handleSubmit} className="composer-screen">
             <section className="composer-panel" aria-busy={loading}>
               <p className="eyebrow">Butterfly</p>
@@ -506,7 +573,7 @@ function App() {
           </form>
         )}
 
-        {playlistUrl && (
+        {hasResult && (
           <section className="result-screen">
             <div className="playlist-hero">
               <div className="playlist-kicker">
@@ -545,15 +612,17 @@ function App() {
             )}
 
             <div className="bottom-action result-actions">
-              <a
-                href={playlistUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="primary-button"
-              >
-                <span className="spotify-dot" aria-hidden="true" />
-                Listen on Spotify
-              </a>
+              {playlistUrl && (
+                <a
+                  href={playlistUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="primary-button"
+                >
+                  <span className="spotify-dot" aria-hidden="true" />
+                  Listen on Spotify
+                </a>
+              )}
               <button
                 type="button"
                 onClick={handleShare}
