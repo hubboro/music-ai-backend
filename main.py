@@ -6,7 +6,7 @@ import re
 from dotenv import load_dotenv
 from spotify_utils import get_spotify_auth_url, get_token, get_app_access_token, create_playlist_from_prompt, refresh_access_token
 from openai_utils import generate_playlist_data, generate_prompt_placeholders
-from supabase_utils import get_soundtrack_by_slug, save_soundtrack
+from supabase_utils import get_soundtrack_by_slug, get_supabase_status, save_soundtrack
 
 load_dotenv()
 
@@ -136,6 +136,10 @@ def get_soundtrack(slug: str):
     except Exception as e:
         print("🔥 Exception while fetching soundtrack:", str(e))
         return JSONResponse({"error": "Failed to fetch soundtrack"}, status_code=500)
+
+@app.get("/storage_status")
+def storage_status():
+    return get_supabase_status()
 
 @app.get("/prompt_placeholders")
 async def get_prompt_placeholders():
