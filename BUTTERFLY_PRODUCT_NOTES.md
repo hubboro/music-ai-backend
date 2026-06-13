@@ -33,11 +33,12 @@ Local notes on how Butterfly creates soundtracks, what works well, and where pro
   - prompt
   - playlist name
   - final songs added to Spotify
-  - generated songs before Spotify matching
   - Spotify playlist URL
   - song count
-  - guest mode
   - share/open/feedback counters for later
+- Optional richer fields:
+  - generated songs before Spotify matching
+  - guest mode
 - To view beta data: Supabase project -> Table Editor -> `soundtracks`.
 
 ## Mobile Backlog
