@@ -83,3 +83,32 @@ def get_soundtrack_by_slug(slug):
     response.raise_for_status()
     data = response.json()
     return data[0] if data else None
+
+
+def get_supabase_status():
+    status = {
+        "configured": is_supabase_configured(),
+        "url_present": bool(SUPABASE_URL),
+        "key_present": bool(SUPABASE_SERVICE_ROLE_KEY),
+        "url_host": SUPABASE_URL.replace("https://", "").replace("http://", "").split("/")[0] if SUPABASE_URL else None,
+        "soundtracks_table_reachable": False,
+    }
+
+    if not is_supabase_configured():
+        return status
+
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/soundtracks",
+            headers=_headers(),
+            params={"select": "id", "limit": "1"},
+            timeout=10,
+        )
+        status["status_code"] = response.status_code
+        status["soundtracks_table_reachable"] = response.ok
+        if not response.ok:
+            status["error"] = response.text[:240]
+    except Exception as e:
+        status["error"] = str(e)
+
+    return status
