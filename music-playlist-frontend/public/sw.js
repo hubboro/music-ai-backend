@@ -1,4 +1,4 @@
-const CACHE_NAME = 'butterfly-pwa-v1';
+const CACHE_NAME = 'butterfly-pwa-v2';
 const OFFLINE_URL = '/offline.html';
 const APP_SHELL = [
   '/',
