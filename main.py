@@ -6,6 +6,7 @@ import re
 from dotenv import load_dotenv
 from spotify_utils import get_spotify_auth_url, get_token, get_app_access_token, create_playlist_from_prompt, refresh_access_token
 from openai_utils import generate_playlist_data, generate_prompt_placeholders
+from supabase_utils import get_soundtrack_by_slug, save_soundtrack
 
 load_dotenv()
 
@@ -90,11 +91,27 @@ async def generate_playlist(request: Request):
                 raise e
 
         print("✅ Playlist created:", playlist_url)
+        soundtrack = None
+        try:
+            soundtrack = save_soundtrack(
+                prompt=prompt,
+                playlist_name=playlist_name,
+                songs=added_songs,
+                spotify_url=playlist_url,
+                generated_songs=song_list,
+                guest_mode=guest_mode,
+            )
+        except Exception as e:
+            print("⚠️ Failed to save soundtrack:", str(e))
+
+        soundtrack_slug = soundtrack.get("slug") if soundtrack else None
         return {
             "playlist_url": playlist_url,
             "playlist_name": playlist_name,
             "songs_added": added_songs,
             "guest_mode": guest_mode,
+            "soundtrack_slug": soundtrack_slug,
+            "soundtrack_url": f"{FRONTEND_URL}/s/{soundtrack_slug}" if soundtrack_slug else None,
         }
 
     except Exception as e:
@@ -108,6 +125,17 @@ async def generate_playlist(request: Request):
 @app.get("/")
 def root():
     return {"message": "FastAPI backend for AI + Spotify is running 🎵"}
+
+@app.get("/soundtracks/{slug}")
+def get_soundtrack(slug: str):
+    try:
+        soundtrack = get_soundtrack_by_slug(slug)
+        if not soundtrack:
+            return JSONResponse({"error": "Soundtrack not found"}, status_code=404)
+        return soundtrack
+    except Exception as e:
+        print("🔥 Exception while fetching soundtrack:", str(e))
+        return JSONResponse({"error": "Failed to fetch soundtrack"}, status_code=500)
 
 @app.get("/prompt_placeholders")
 async def get_prompt_placeholders():

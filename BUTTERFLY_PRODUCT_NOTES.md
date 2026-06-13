@@ -23,6 +23,23 @@ Local notes on how Butterfly creates soundtracks, what works well, and where pro
    - Track generation success, song count, skipped tracks, share taps, and simple feedback.
    - Avoid personal data; focus on product quality signals.
 
+## Supabase Soundtrack Storage
+
+- Backend env vars:
+  - `SUPABASE`: Supabase project URL. `SUPABASE_URL` is also supported if we rename it later.
+  - `SUPABASE_SERVICE_ROLE_KEY`: backend-only Supabase Secret API key.
+- Table setup lives in `supabase_schema.sql`.
+- The backend saves successful generations into the `soundtracks` table:
+  - prompt
+  - playlist name
+  - final songs added to Spotify
+  - generated songs before Spotify matching
+  - Spotify playlist URL
+  - song count
+  - guest mode
+  - share/open/feedback counters for later
+- To view beta data: Supabase project -> Table Editor -> `soundtracks`.
+
 ## Mobile Backlog
 
 - Add native share sheet integration after Capacitor is added.

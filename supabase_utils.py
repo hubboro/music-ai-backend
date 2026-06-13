@@ -1,0 +1,85 @@
+import os
+import re
+import uuid
+from datetime import datetime, timezone
+
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SUPABASE_URL = (os.getenv("SUPABASE_URL") or os.getenv("SUPABASE") or "").rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+
+def is_supabase_configured():
+    return bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+
+
+def _headers():
+    return {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+
+def _slugify(value):
+    slug = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
+    return slug[:44].strip("-") or "soundtrack"
+
+
+def create_soundtrack_slug(playlist_name):
+    return f"{_slugify(playlist_name)}-{uuid.uuid4().hex[:8]}"
+
+
+def save_soundtrack(
+    prompt,
+    playlist_name,
+    songs,
+    spotify_url=None,
+    generated_songs=None,
+    guest_mode=True,
+):
+    if not is_supabase_configured():
+        print("ℹ️ Supabase not configured; skipping soundtrack save")
+        return None
+
+    slug = create_soundtrack_slug(playlist_name)
+    payload = {
+        "slug": slug,
+        "prompt": prompt,
+        "playlist_name": playlist_name,
+        "songs": songs or [],
+        "generated_songs": generated_songs or [],
+        "spotify_url": spotify_url,
+        "song_count": len(songs or []),
+        "guest_mode": guest_mode,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/soundtracks",
+        headers=_headers(),
+        json=payload,
+        timeout=10,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data[0] if isinstance(data, list) and data else None
+
+
+def get_soundtrack_by_slug(slug):
+    if not is_supabase_configured():
+        return None
+
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/soundtracks",
+        headers=_headers(),
+        params={"slug": f"eq.{slug}", "select": "*", "limit": "1"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data[0] if data else None
