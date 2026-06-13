@@ -47,24 +47,35 @@ def save_soundtrack(
         return None
 
     slug = create_soundtrack_slug(playlist_name)
-    payload = {
+    base_payload = {
         "slug": slug,
         "prompt": prompt,
         "playlist_name": playlist_name,
         "songs": songs or [],
-        "generated_songs": generated_songs or [],
         "spotify_url": spotify_url,
         "song_count": len(songs or []),
-        "guest_mode": guest_mode,
         "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    full_payload = {
+        **base_payload,
+        "generated_songs": generated_songs or [],
+        "guest_mode": guest_mode,
     }
 
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/soundtracks",
         headers=_headers(),
-        json=payload,
+        json=full_payload,
         timeout=10,
     )
+    if not response.ok:
+        print("⚠️ Supabase full soundtrack save failed:", response.text[:240])
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/soundtracks",
+            headers=_headers(),
+            json=base_payload,
+            timeout=10,
+        )
     response.raise_for_status()
     data = response.json()
     return data[0] if isinstance(data, list) and data else None
