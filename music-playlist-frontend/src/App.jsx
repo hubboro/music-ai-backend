@@ -1,7 +1,17 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import axios from 'axios';
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
+const PRODUCTION_BACKEND = 'https://butterfly-backend-qcay.onrender.com';
+const LOCAL_BACKEND = 'http://127.0.0.1:8000';
+const LEGACY_BACKEND_URLS = new Set([
+  'https://butterfly-music-app.onrender.com'
+]);
+const configuredBackend = import.meta.env.VITE_BACKEND_URL
+  || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? LOCAL_BACKEND
+    : PRODUCTION_BACKEND);
+const normalizedBackend = configuredBackend.replace(/\/$/, '');
+const BACKEND = LEGACY_BACKEND_URLS.has(normalizedBackend) ? PRODUCTION_BACKEND : normalizedBackend;
 const HISTORY_STORAGE_KEY = 'butterfly_soundtrack_history';
 const HISTORY_LIMIT = 12;
 
