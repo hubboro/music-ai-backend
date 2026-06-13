@@ -96,6 +96,27 @@ def get_soundtrack_by_slug(slug):
     return data[0] if data else None
 
 
+def update_soundtrack_spotify_url(slug, spotify_url, songs=None):
+    if not is_supabase_configured() or not slug or not spotify_url:
+        return None
+
+    payload = {"spotify_url": spotify_url}
+    if songs is not None:
+        payload["songs"] = songs
+        payload["song_count"] = len(songs or [])
+
+    response = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/soundtracks",
+        headers={**_headers(), "Prefer": "return=representation"},
+        params={"slug": f"eq.{slug}"},
+        json=payload,
+        timeout=10,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data[0] if isinstance(data, list) and data else None
+
+
 def get_supabase_status():
     status = {
         "configured": is_supabase_configured(),

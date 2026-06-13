@@ -3,6 +3,7 @@ import asyncio
 import requests
 import httpx
 import re
+from base64 import b64encode
 from difflib import SequenceMatcher
 from urllib.parse import urlencode
 from dotenv import load_dotenv
@@ -48,6 +49,23 @@ def get_app_access_token():
         raise HTTPException(status_code=503, detail="App Spotify account not configured")
     refreshed = refresh_access_token(app_refresh_token)
     return refreshed.get("access_token")
+
+def get_spotify_search_token():
+    """Get an app-only token for Spotify search without creating user playlists."""
+    if not CLIENT_ID or not CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="Spotify app credentials not configured")
+
+    credentials = b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode("utf-8")).decode("utf-8")
+    response = requests.post(
+        TOKEN_URL,
+        headers={"Authorization": f"Basic {credentials}"},
+        data={"grant_type": "client_credentials"},
+        timeout=10,
+    )
+    data = response.json()
+    if not response.ok or "access_token" not in data:
+        raise HTTPException(status_code=503, detail="Spotify search token error")
+    return data["access_token"]
 
 def get_token(code: str):
     payload = {
@@ -135,6 +153,7 @@ def _score_track_match(song: dict, track: dict):
 def _format_track_result(track: dict, score: int):
     return {
         "uri": track["uri"],
+        "spotify_uri": track["uri"],
         "title": track["name"],
         "artist": ", ".join(_artist_names(track)),
         "primary_artist": _artist_names(track)[0] if _artist_names(track) else "",
@@ -186,7 +205,66 @@ async def _search_track(client: httpx.AsyncClient, headers: dict, song: dict):
     print(f"⚠️ Skipping weak Spotify match: {title} — {artist}")
     return None
 
-async def create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token=None, playlist_description=None):
+def _dedupe_matched_tracks(results):
+    matched_songs = []
+    added_artists = set()
+    for result in results:
+        if not result:
+            continue
+        normalized_artist = _normalize_text(result.get("primary_artist") or result.get("artist"))
+        if normalized_artist in added_artists:
+            print(f"⚠️ Skipping duplicate Spotify artist: {result['title']} — {result['artist']}")
+            continue
+        added_artists.add(normalized_artist)
+        matched_songs.append({
+            "title": result["title"],
+            "artist": result["artist"],
+            "spotify_uri": result.get("spotify_uri") or result.get("uri"),
+            "match_score": result.get("match_score"),
+        })
+    return matched_songs
+
+async def match_spotify_tracks(song_list, access_token):
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    async with httpx.AsyncClient() as client:
+        results = await asyncio.gather(*[_search_track(client, headers, song) for song in song_list])
+
+    return _dedupe_matched_tracks(results)
+
+async def create_playlist_from_tracks(
+    song_list,
+    access_token,
+    playlist_name,
+    playlist_description=None,
+    public=True,
+):
+    matched_songs = [song for song in song_list if song.get("spotify_uri") or song.get("uri")]
+    if len(matched_songs) != len(song_list):
+        matched_songs = await match_spotify_tracks(song_list, access_token)
+
+    uris = []
+    added_songs = []
+    seen_uris = set()
+    for song in matched_songs:
+        uri = song.get("spotify_uri") or song.get("uri")
+        if not uri or uri in seen_uris:
+            continue
+        seen_uris.add(uri)
+        uris.append(uri)
+        added_songs.append({
+            "title": song.get("title", ""),
+            "artist": song.get("artist", ""),
+            "spotify_uri": uri,
+            "match_score": song.get("match_score"),
+        })
+
+    if not uris:
+        raise HTTPException(status_code=422, detail="No Spotify tracks matched")
+
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
@@ -206,35 +284,26 @@ async def create_playlist_from_prompt(song_list, access_token, playlist_name, re
     playlist_response = requests.post(
         f"https://api.spotify.com/v1/users/{user_id}/playlists",
         headers=headers,
-        json={"name": playlist_title, "description": description_clean, "public": True}
+        json={"name": playlist_title, "description": description_clean, "public": public}
     ).json()
 
     if "error" in playlist_response:
         raise Exception(f"Spotify error: {playlist_response['error']['message']}")
 
     playlist_id = playlist_response["id"]
-
-    async with httpx.AsyncClient() as client:
-        results = await asyncio.gather(*[_search_track(client, headers, song) for song in song_list])
-
-    uris = []
-    added_songs = []
-    added_artists = set()
-    for result in results:
-        if result:
-            normalized_artist = _normalize_text(result.get("primary_artist") or result.get("artist"))
-            if normalized_artist in added_artists:
-                print(f"⚠️ Skipping duplicate Spotify artist: {result['title']} — {result['artist']}")
-                continue
-            uris.append(result["uri"])
-            added_artists.add(normalized_artist)
-            added_songs.append({"title": result["title"], "artist": result["artist"]})
-
-    if uris:
-        requests.post(
-            f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
-            headers=headers,
-            json={"uris": uris}
-        )
+    requests.post(
+        f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
+        headers=headers,
+        json={"uris": uris}
+    )
 
     return playlist_response["external_urls"]["spotify"], added_songs
+
+async def create_playlist_from_prompt(song_list, access_token, playlist_name, refresh_token=None, playlist_description=None):
+    return await create_playlist_from_tracks(
+        song_list,
+        access_token,
+        playlist_name,
+        playlist_description=playlist_description,
+        public=True,
+    )
