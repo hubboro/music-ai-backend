@@ -237,7 +237,7 @@
   }
 
   .quiet-button {
-    @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-sage-200/80 px-6 text-center text-sm font-semibold text-sage-700 transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.975] active:bg-sage-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
+    @apply inline-flex min-h-12 w-full items-center justify-center rounded-full border border-sage-200/80 px-6 text-center text-sm font-semibold text-sage-700 transition duration-200 ease-out active:translate-y-0.5 active:scale-[0.975] active:bg-sage-100 disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
     background-color: rgba(250, 248, 243, 0.6);
   }
 

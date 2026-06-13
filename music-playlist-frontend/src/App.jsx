@@ -156,6 +156,7 @@ function App() {
   const [guestMode, setGuestMode] = useState(false);
   const [soundtrackHistory, setSoundtrackHistory] = useState([]);
   const [shareStatus, setShareStatus] = useState('');
+  const [creatingShareLink, setCreatingShareLink] = useState(false);
 
   useEffect(() => {
     setSoundtrackHistory(readSoundtrackHistory());
@@ -403,10 +404,47 @@ function App() {
   };
 
   const handleShare = async () => {
-    const shareTargetUrl = getCurrentSoundtrackPageUrl() || soundtrackUrl;
+    let shareTargetUrl = getCurrentSoundtrackPageUrl() || soundtrackUrl;
     if (!shareTargetUrl) {
-      setShareStatus('Make a new share link first');
-      return;
+      if (!playlistName || !prompt.trim() || songs.length === 0) {
+        setShareStatus('Make a new soundtrack first');
+        return;
+      }
+
+      setCreatingShareLink(true);
+      setShareStatus('Creating share link');
+      try {
+        const res = await axios.post(`${BACKEND}/soundtracks`, {
+          prompt: prompt.trim(),
+          playlist_name: playlistName,
+          songs,
+          spotify_url: playlistUrl || null
+        });
+        shareTargetUrl = getLocalSoundtrackUrl(res.data.soundtrack_slug)
+          || normalizeSoundtrackUrl(res.data.soundtrack_url);
+
+        if (!shareTargetUrl) {
+          setShareStatus('Could not create link');
+          return;
+        }
+
+        setSoundtrackUrl(shareTargetUrl);
+        showSoundtrackPageInAddressBar(shareTargetUrl);
+        setSoundtrackHistory((currentHistory) => {
+          const nextHistory = currentHistory.map((item) => (
+            item.playlistUrl === playlistUrl
+              ? { ...item, soundtrackUrl: shareTargetUrl }
+              : item
+          ));
+          writeSoundtrackHistory(nextHistory);
+          return nextHistory;
+        });
+      } catch {
+        setShareStatus('Could not create link');
+        return;
+      } finally {
+        setCreatingShareLink(false);
+      }
     }
 
     const shareTitle = playlistName || 'Butterfly soundtrack';
@@ -670,6 +708,7 @@ function App() {
               <button
                 type="button"
                 onClick={handleShare}
+                disabled={creatingShareLink}
                 className="quiet-button share-button"
               >
                 <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -677,7 +716,7 @@ function App() {
                   <path d="M7 8l5-5 5 5" />
                   <path d="M5 13v6h14v-6" />
                 </svg>
-                Share soundtrack
+                {creatingShareLink ? 'Creating share link' : 'Share soundtrack'}
               </button>
               {shareStatus && (
                 <p className="share-status" role="status" aria-live="polite">

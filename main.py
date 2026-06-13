@@ -137,6 +137,40 @@ def get_soundtrack(slug: str):
         print("🔥 Exception while fetching soundtrack:", str(e))
         return JSONResponse({"error": "Failed to fetch soundtrack"}, status_code=500)
 
+@app.post("/soundtracks")
+async def create_soundtrack(request: Request):
+    try:
+        body = await request.json()
+        prompt = (body.get("prompt") or "").strip()
+        playlist_name = (body.get("playlist_name") or "Butterfly Soundtrack").strip()
+        songs = body.get("songs") if isinstance(body.get("songs"), list) else []
+        spotify_url = body.get("spotify_url")
+
+        if not prompt:
+            return JSONResponse({"error": "Missing prompt"}, status_code=400)
+        if not songs:
+            return JSONResponse({"error": "Missing songs"}, status_code=400)
+
+        soundtrack = save_soundtrack(
+            prompt=prompt,
+            playlist_name=playlist_name,
+            songs=songs,
+            spotify_url=spotify_url,
+            generated_songs=songs,
+            guest_mode=True,
+        )
+        if not soundtrack:
+            return JSONResponse({"error": "Could not save soundtrack"}, status_code=503)
+
+        soundtrack_slug = soundtrack.get("slug")
+        return {
+            "soundtrack_slug": soundtrack_slug,
+            "soundtrack_url": f"{FRONTEND_URL}/s/{soundtrack_slug}",
+        }
+    except Exception as e:
+        print("🔥 Exception while creating soundtrack:", str(e))
+        return JSONResponse({"error": "Failed to create soundtrack"}, status_code=500)
+
 @app.get("/storage_status")
 def storage_status():
     return get_supabase_status()
