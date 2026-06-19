@@ -15,3 +15,17 @@ services:
         sync: false
       - key: SPOTIFY_REDIRECT_URI
         value: https://butterfly-backend-qcay.onrender.com/callback
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GENERATE_PER_HOUR
+        value: 5
+      - key: GLOBAL_GENERATE_PER_DAY
+        value: 50
+      - key: SPOTIFY_PLAYLISTS_PER_HOUR
+        value: 5
+      - key: GLOBAL_SPOTIFY_PLAYLISTS_PER_DAY
+        value: 100
+      - key: MAX_PLAYLIST_REPAIR_ATTEMPTS
+        value: 1

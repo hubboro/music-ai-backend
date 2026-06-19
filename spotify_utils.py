@@ -17,7 +17,7 @@ REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
 SCOPE = "playlist-modify-public playlist-modify-private"
 
 AUTH_URL = "https://accounts.spotify.com/authorize"
-TOKEN_URL = "https://accounts.spotify.com/api/token"
+TOKEN_URL = "https://accounts.spotify.com/api/token"  # nosec B105
 BAD_VERSION_TERMS = (
     "karaoke",
     "tribute",
@@ -75,7 +75,9 @@ def get_token(code: str):
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET
     }
-    response = requests.post(TOKEN_URL, data=payload)
+    response = requests.post(TOKEN_URL, data=payload, timeout=10)
+    if not response.ok:
+        raise HTTPException(status_code=401, detail="Spotify authorization failed")
     return response.json()
 
 def refresh_access_token(refresh_token: str):
@@ -85,7 +87,7 @@ def refresh_access_token(refresh_token: str):
         "client_id": CLIENT_ID,
         "client_secret": CLIENT_SECRET
     }
-    response = requests.post(TOKEN_URL, data=payload)
+    response = requests.post(TOKEN_URL, data=payload, timeout=10)
     refreshed_token_data = response.json()
 
     if "error" in refreshed_token_data:
@@ -270,8 +272,12 @@ async def create_playlist_from_tracks(
         "Content-Type": "application/json"
     }
 
-    profile = requests.get("https://api.spotify.com/v1/me", headers=headers).json()
-    print("👤 Spotify user profile response:", profile)
+    profile_response = requests.get(
+        "https://api.spotify.com/v1/me",
+        headers=headers,
+        timeout=10,
+    )
+    profile = profile_response.json()
 
     if "error" in profile:
         raise HTTPException(status_code=401, detail=f"Spotify auth error: {profile['error']['message']}")
@@ -281,21 +287,26 @@ async def create_playlist_from_tracks(
     playlist_title = playlist_name if isinstance(playlist_name, str) and playlist_name.strip() else "Butterfly Playlist"
     description_clean = playlist_description or "Made with Butterfly from a feeling."
 
-    playlist_response = requests.post(
+    playlist_create_response = requests.post(
         f"https://api.spotify.com/v1/users/{user_id}/playlists",
         headers=headers,
-        json={"name": playlist_title, "description": description_clean, "public": public}
-    ).json()
+        json={"name": playlist_title, "description": description_clean, "public": public},
+        timeout=10,
+    )
+    playlist_response = playlist_create_response.json()
 
     if "error" in playlist_response:
         raise Exception(f"Spotify error: {playlist_response['error']['message']}")
 
     playlist_id = playlist_response["id"]
-    requests.post(
+    add_tracks_response = requests.post(
         f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
         headers=headers,
-        json={"uris": uris}
+        json={"uris": uris},
+        timeout=10,
     )
+    if not add_tracks_response.ok:
+        raise HTTPException(status_code=502, detail="Spotify could not add tracks")
 
     return playlist_response["external_urls"]["spotify"], added_songs
 

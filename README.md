@@ -23,8 +23,9 @@ Optionally, users can log in with their own Spotify account to have playlists cr
 
 **Backend**
 - Python / FastAPI
-- OpenAI API (GPT-4.1 mini for playlist generation, GPT-4.1 nano for prompt suggestions)
+- OpenAI API (GPT-4.1 mini for playlist generation and quality checks)
 - Spotify Web API (OAuth 2.0, playlist creation, track search)
+- Supabase (persistent, shareable soundtrack pages)
 - Async parallel track search via `httpx` + `asyncio`
 - Deployed on [Render](https://render.com)
 
@@ -41,8 +42,11 @@ Optionally, users can log in with their own Spotify account to have playlists cr
 ```
 music-ai-backend/
 ├── main.py              # FastAPI app, routes
-├── openai_utils.py      # GPT prompts for playlist + placeholder generation
+├── openai_utils.py      # Playlist generation and cached placeholder selection
 ├── spotify_utils.py     # Spotify OAuth, playlist creation, track search
+├── supabase_utils.py    # Persistent soundtrack storage and retrieval
+├── supabase_schema.sql  # Soundtrack table schema
+├── placeholders.json    # Cached prompt examples (no API call on page load)
 ├── requirements.txt
 ├── render.yaml          # Render deployment config
 └── music-playlist-frontend/
@@ -79,6 +83,7 @@ You'll need:
 - An [OpenAI API key](https://platform.openai.com)
 - A [Spotify app](https://developer.spotify.com/dashboard) (Client ID + Secret)
 - A Spotify refresh token for the guest playlist account (obtained via the Spotify OAuth flow with your own account)
+- Optional: a Supabase project for persistent, shareable soundtrack pages
 
 ---
 
@@ -88,9 +93,12 @@ You'll need:
 - **Parallel Spotify search** — all 10 track searches run concurrently, cutting response time significantly
 - **OpenAI JSON mode** — guarantees structured output without fragile string parsing
 - **Guest vs. logged-in flow** — users can optionally log in to get playlists in their own Spotify library; the login flow is available at `/test`
+- **Cost protection** — per-IP limits, global daily caps, bounded request schemas, and a repeated-prompt cache protect OpenAI and Spotify usage
+
+The default limits allow 5 generations per IP per hour and 50 generations globally per day. They can be changed with the environment variables documented in [`.env.example`](.env.example). The in-memory limiter is designed for the current single-process Render deployment; use a shared Redis-backed limiter before scaling to multiple instances.
 
 ---
 
 ## Development notes
 
-The initial version was prototyped with the help of [ChatGPT](https://chatgpt.com). The project was then continued and significantly extended using [Claude Code](https://claude.ai/code) (Anthropic's AI coding assistant) for pair programming, implementation, and debugging. Architecture decisions, product direction, and code review were my own.
+The initial version was prototyped with the help of [ChatGPT](https://chatgpt.com). It was then significantly extended using [Claude Code](https://claude.ai/code), before development moved to [Codex](https://openai.com/codex/) for continued implementation, debugging, and code review. Architecture decisions and product direction were my own, with AI coding tools used as development collaborators.

@@ -1,12 +1,61 @@
 import os
 import random
+import time
+from copy import deepcopy
+from threading import Lock
 from openai import OpenAI
 import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+_client = None
+_client_lock = Lock()
+_playlist_cache = {}
+_playlist_cache_lock = Lock()
+PLAYLIST_CACHE_TTL_SECONDS = int(os.getenv("PLAYLIST_CACHE_TTL_SECONDS", "86400"))
+PLAYLIST_CACHE_MAX_ENTRIES = int(os.getenv("PLAYLIST_CACHE_MAX_ENTRIES", "200"))
+MAX_PLAYLIST_REPAIR_ATTEMPTS = max(0, min(int(os.getenv("MAX_PLAYLIST_REPAIR_ATTEMPTS", "1")), 2))
+
+
+def _get_client():
+    global _client
+    with _client_lock:
+        if _client is None:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise RuntimeError("OPENAI_API_KEY is not configured")
+            _client = OpenAI(api_key=api_key, timeout=30.0, max_retries=1)
+    return _client
+
+
+def _prompt_cache_key(prompt):
+    return " ".join((prompt or "").lower().split())
+
+
+def _get_cached_playlist(prompt):
+    key = _prompt_cache_key(prompt)
+    now = time.monotonic()
+    with _playlist_cache_lock:
+        cached = _playlist_cache.get(key)
+        if not cached:
+            return None
+        created_at, data = cached
+        if now - created_at > PLAYLIST_CACHE_TTL_SECONDS:
+            _playlist_cache.pop(key, None)
+            return None
+        return deepcopy(data)
+
+
+def _cache_playlist(prompt, data):
+    if not data.get("songs"):
+        return
+    key = _prompt_cache_key(prompt)
+    with _playlist_cache_lock:
+        if len(_playlist_cache) >= PLAYLIST_CACHE_MAX_ENTRIES:
+            oldest_key = min(_playlist_cache, key=lambda item: _playlist_cache[item][0])
+            _playlist_cache.pop(oldest_key, None)
+        _playlist_cache[key] = (time.monotonic(), deepcopy(data))
 
 CURATOR_SYSTEM_PROMPT = (
     "You are Butterfly, a modern music curator for casual young listeners. "
@@ -119,7 +168,7 @@ def _repair_playlist_data(prompt: str, data, extra_notes=None):
         notes.extend(extra_notes)
     issue_text = "\n".join(f"- {note}" for note in notes) if notes else "- General title/artist accuracy and taste check."
 
-    response = client.chat.completions.create(
+    response = _get_client().chat.completions.create(
         model="gpt-4.1-mini",
         response_format={"type": "json_object"},
         messages=[
@@ -154,28 +203,30 @@ def _repair_playlist_data(prompt: str, data, extra_notes=None):
 
 def _validate_and_repair_playlist_data(prompt: str, data):
     cleaned = _clean_playlist_data(data)
-    initial_notes = _build_repair_notes(cleaned)
+    repaired = cleaned
 
-    if not initial_notes:
-        return cleaned
-
-    repaired = _repair_playlist_data(prompt, cleaned)
-    remaining_notes = _build_repair_notes(repaired)
-
-    if remaining_notes:
+    for attempt in range(MAX_PLAYLIST_REPAIR_ATTEMPTS):
+        remaining_notes = _build_repair_notes(repaired)
+        if not remaining_notes:
+            break
         repaired = _repair_playlist_data(
             prompt,
             repaired,
-            extra_notes=[
-                "The previous repair still failed these checks. Fix them now without introducing new duplicate artists.",
-                *remaining_notes
-            ]
+            extra_notes=(
+                ["A previous result failed validation. Fix the listed issues without introducing new duplicate artists."]
+                if attempt
+                else None
+            ),
         )
 
     return _clean_playlist_data(repaired)
 
 def generate_playlist_data(prompt: str):
-    response = client.chat.completions.create(
+    cached = _get_cached_playlist(prompt)
+    if cached:
+        return cached
+
+    response = _get_client().chat.completions.create(
         model="gpt-4.1-mini",
         response_format={"type": "json_object"},
         messages=[
@@ -197,7 +248,9 @@ def generate_playlist_data(prompt: str):
 
     try:
         data = _parse_playlist_json(response.choices[0].message.content)
-        return _validate_and_repair_playlist_data(prompt, data)
+        result = _validate_and_repair_playlist_data(prompt, data)
+        _cache_playlist(prompt, result)
+        return result
     except Exception as e:
         print("❌ Error generating or repairing playlist:", e)
         return _clean_playlist_data(_parse_playlist_json(response.choices[0].message.content))
@@ -207,7 +260,7 @@ def generate_prompt_placeholders():
         path = os.path.join(os.path.dirname(__file__), "placeholders.json")
         with open(path) as f:
             examples = json.load(f)
-        return [random.choice(examples)]
+        return [random.choice(examples)]  # nosec B311
     except Exception as e:
         print("🔥 Error loading placeholders:", str(e))
         return ["a late summer evening, windows open, nowhere to be"]

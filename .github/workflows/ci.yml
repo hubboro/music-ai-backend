@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies and audit tools
+        run: pip install -r requirements.txt pip-audit bandit ruff
+      - name: Lint
+        run: ruff check main.py api_protection.py openai_utils.py spotify_utils.py supabase_utils.py tests
+      - name: Security scan
+        run: bandit -q -r main.py api_protection.py openai_utils.py spotify_utils.py supabase_utils.py
+      - name: Dependency audit
+        run: pip-audit -r requirements.txt
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: music-playlist-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: music-playlist-frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Dependency audit
+        run: npm audit
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
