@@ -325,13 +325,7 @@ function App() {
     setSpotifyStatus('');
 
     try {
-      const body = { prompt };
-      if (mode === 'login') {
-        body.access_token = accessToken;
-        body.refresh_token = refreshToken;
-      }
-
-      const res = await axios.post(`${BACKEND}/generate_playlist`, body);
+      const res = await axios.post(`${BACKEND}/generate_playlist`, { prompt: prompt.trim() });
       const nextPlaylistUrl = res.data.playlist_url || '';
       const nextSoundtrackUrl = getLocalSoundtrackUrl(res.data.soundtrack_slug)
         || normalizeSoundtrackUrl(res.data.soundtrack_url);
@@ -376,6 +370,8 @@ function App() {
         localStorage.removeItem('spotify_token_timestamp');
       } else if (err?.response?.data?.error === 'rate_limited') {
         setError('Butterfly is taking a breather - too many playlists at once. Try again in a moment.');
+      } else if (['invalid_request', 'request_too_large'].includes(err?.response?.data?.error)) {
+        setError('Keep the idea short and simple, then try again.');
       } else {
         setError('Something went wrong. Please try again.');
       }
@@ -467,8 +463,12 @@ function App() {
           writeSoundtrackHistory(nextHistory);
           return nextHistory;
         });
-      } catch {
-        setShareStatus('Could not create link');
+      } catch (err) {
+        setShareStatus(
+          err?.response?.data?.error === 'rate_limited'
+            ? 'Too many links created. Try again later.'
+            : 'Could not create link'
+        );
         return;
       } finally {
         setCreatingShareLink(false);
@@ -676,6 +676,7 @@ function App() {
                 autoCorrect="on"
                 enterKeyHint="done"
                 spellCheck="true"
+                maxLength={300}
               />
             </section>
 

@@ -1,9 +1,14 @@
+import asyncio
+import re
+from typing import Optional
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import re
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from dotenv import load_dotenv
+from api_protection import enforce_rate_limit, positive_int_env
 from spotify_utils import (
     get_spotify_auth_url,
     get_token,
@@ -14,13 +19,115 @@ from spotify_utils import (
     refresh_access_token,
 )
 from openai_utils import generate_playlist_data, generate_prompt_placeholders
-from supabase_utils import get_soundtrack_by_slug, get_supabase_status, save_soundtrack, update_soundtrack_spotify_url
+from supabase_utils import get_soundtrack_by_slug, save_soundtrack, update_soundtrack_spotify_url
 
 load_dotenv()
 
 app = FastAPI()
 
 FRONTEND_URL = "https://butterfly-music-app.vercel.app"
+MAX_REQUEST_BYTES = positive_int_env("MAX_REQUEST_BYTES", 32768)
+GENERATE_PER_HOUR = positive_int_env("GENERATE_PER_HOUR", 5)
+GLOBAL_GENERATE_PER_DAY = positive_int_env("GLOBAL_GENERATE_PER_DAY", 50)
+SPOTIFY_PLAYLISTS_PER_HOUR = positive_int_env("SPOTIFY_PLAYLISTS_PER_HOUR", 5)
+GLOBAL_SPOTIFY_PLAYLISTS_PER_DAY = positive_int_env("GLOBAL_SPOTIFY_PLAYLISTS_PER_DAY", 100)
+SOUNDTRACK_WRITES_PER_HOUR = positive_int_env("SOUNDTRACK_WRITES_PER_HOUR", 15)
+GLOBAL_SOUNDTRACK_WRITES_PER_DAY = positive_int_env("GLOBAL_SOUNDTRACK_WRITES_PER_DAY", 300)
+SOUNDTRACK_READS_PER_HOUR = positive_int_env("SOUNDTRACK_READS_PER_HOUR", 120)
+GENERATION_CONCURRENCY = positive_int_env("GENERATION_CONCURRENCY", 2)
+generation_slots = asyncio.Semaphore(GENERATION_CONCURRENCY)
+
+
+class GeneratePlaylistRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(min_length=1, max_length=300)
+
+    @field_validator("prompt")
+    @classmethod
+    def clean_prompt(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("prompt cannot be blank")
+        return value
+
+
+class SongRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    title: str = Field(min_length=1, max_length=200)
+    artist: str = Field(min_length=1, max_length=200)
+    spotify_uri: Optional[str] = Field(default=None, max_length=100)
+    uri: Optional[str] = Field(default=None, max_length=100)
+    match_score: Optional[int] = Field(default=None, ge=0, le=100)
+
+    @field_validator("title", "artist")
+    @classmethod
+    def clean_text(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("song fields cannot be blank")
+        return value
+
+    @field_validator("spotify_uri", "uri")
+    @classmethod
+    def validate_track_uri(cls, value):
+        if value and not re.fullmatch(r"spotify:track:[A-Za-z0-9]+", value):
+            raise ValueError("invalid Spotify track URI")
+        return value
+
+
+class SpotifyPlaylistRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(default="", max_length=300)
+    playlist_name: str = Field(default="Butterfly Soundtrack", min_length=1, max_length=100)
+    songs: list[SongRequest] = Field(default_factory=list, max_length=10)
+    soundtrack_slug: str = Field(default="", max_length=80)
+    access_token: Optional[str] = Field(default=None, max_length=4096)
+    refresh_token: Optional[str] = Field(default=None, max_length=4096)
+
+    @field_validator("soundtrack_slug")
+    @classmethod
+    def validate_slug(cls, value):
+        value = value.strip()
+        if value and not re.fullmatch(r"[a-z0-9-]+", value):
+            raise ValueError("invalid soundtrack slug")
+        return value
+
+
+class CreateSoundtrackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(min_length=1, max_length=300)
+    playlist_name: str = Field(min_length=1, max_length=100)
+    songs: list[SongRequest] = Field(min_length=1, max_length=10)
+    spotify_url: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("spotify_url")
+    @classmethod
+    def validate_spotify_url(cls, value):
+        if value and not value.startswith("https://open.spotify.com/playlist/"):
+            raise ValueError("invalid Spotify playlist URL")
+        return value
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_request, _exc):
+    return JSONResponse({"error": "invalid_request"}, status_code=422)
+
+
+@app.middleware("http")
+async def reject_large_requests(request, call_next):
+    if request.method in {"POST", "PUT", "PATCH"}:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_REQUEST_BYTES:
+                    return JSONResponse({"error": "request_too_large"}, status_code=413)
+            except ValueError:
+                return JSONResponse({"error": "invalid_request"}, status_code=400)
+    return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,17 +166,21 @@ def _playlist_description(prompt):
 
 
 @app.post("/generate_playlist")
-async def generate_playlist(request: Request):
+async def generate_playlist(payload: GeneratePlaylistRequest, request: Request):
     try:
-        body = await request.json()
-        prompt = body.get("prompt")
+        limited = enforce_rate_limit(
+            request,
+            scope="generate",
+            per_ip_limit=GENERATE_PER_HOUR,
+            global_limit=GLOBAL_GENERATE_PER_DAY,
+        )
+        if limited:
+            return limited
 
-        print("🎯 Received prompt:", prompt)
+        prompt = payload.prompt
 
-        if not prompt:
-            return JSONResponse({"error": "Missing prompt"}, status_code=400)
-
-        result = generate_playlist_data(prompt)
+        async with generation_slots:
+            result = await asyncio.to_thread(generate_playlist_data, prompt)
         playlist_name = result.get("name", "Butterfly Playlist")
         song_list = result.get("songs", [])
         search_token = get_spotify_search_token()
@@ -109,22 +220,38 @@ async def generate_playlist(request: Request):
 
 
 @app.post("/spotify_playlist")
-async def create_spotify_playlist(request: Request):
+async def create_spotify_playlist(payload: SpotifyPlaylistRequest, request: Request):
     try:
-        body = await request.json()
-        prompt = (body.get("prompt") or "").strip()
-        playlist_name = (body.get("playlist_name") or "Butterfly Soundtrack").strip()
-        songs = body.get("songs") if isinstance(body.get("songs"), list) else []
-        soundtrack_slug = (body.get("soundtrack_slug") or "").strip()
-        access_token = body.get("access_token")
-        refresh_token = body.get("refresh_token")
+        limited = enforce_rate_limit(
+            request,
+            scope="spotify-playlist",
+            per_ip_limit=SPOTIFY_PLAYLISTS_PER_HOUR,
+            global_limit=GLOBAL_SPOTIFY_PLAYLISTS_PER_DAY,
+        )
+        if limited:
+            return limited
+
+        prompt = payload.prompt.strip()
+        playlist_name = payload.playlist_name.strip()
+        songs = [song.model_dump(exclude_none=True) for song in payload.songs]
+        soundtrack_slug = payload.soundtrack_slug
+        access_token = payload.access_token
+        refresh_token = payload.refresh_token
         guest_mode = not access_token
+
+        if guest_mode:
+            if not soundtrack_slug:
+                return JSONResponse({"error": "Missing soundtrack"}, status_code=400)
+            soundtrack = get_soundtrack_by_slug(soundtrack_slug)
+            if not soundtrack:
+                return JSONResponse({"error": "Soundtrack not found"}, status_code=404)
+            prompt = (soundtrack.get("prompt") or "").strip()
+            playlist_name = (soundtrack.get("playlist_name") or "Butterfly Soundtrack").strip()
+            songs = soundtrack.get("songs") if isinstance(soundtrack.get("songs"), list) else []
+            access_token = get_app_access_token()
 
         if not songs:
             return JSONResponse({"error": "Missing songs"}, status_code=400)
-
-        if guest_mode:
-            access_token = get_app_access_token()
 
         try:
             playlist_url, added_songs = await create_playlist_from_tracks(
@@ -178,8 +305,15 @@ def root():
     return {"message": "FastAPI backend for AI + Spotify is running 🎵"}
 
 @app.get("/soundtracks/{slug}")
-def get_soundtrack(slug: str):
+def get_soundtrack(slug: str, request: Request):
     try:
+        limited = enforce_rate_limit(
+            request,
+            scope="soundtrack-read",
+            per_ip_limit=SOUNDTRACK_READS_PER_HOUR,
+        )
+        if limited:
+            return limited
         soundtrack = get_soundtrack_by_slug(slug)
         if not soundtrack:
             return JSONResponse({"error": "Soundtrack not found"}, status_code=404)
@@ -189,18 +323,21 @@ def get_soundtrack(slug: str):
         return JSONResponse({"error": "Failed to fetch soundtrack"}, status_code=500)
 
 @app.post("/soundtracks")
-async def create_soundtrack(request: Request):
+async def create_soundtrack(payload: CreateSoundtrackRequest, request: Request):
     try:
-        body = await request.json()
-        prompt = (body.get("prompt") or "").strip()
-        playlist_name = (body.get("playlist_name") or "Butterfly Soundtrack").strip()
-        songs = body.get("songs") if isinstance(body.get("songs"), list) else []
-        spotify_url = body.get("spotify_url")
+        limited = enforce_rate_limit(
+            request,
+            scope="soundtrack-write",
+            per_ip_limit=SOUNDTRACK_WRITES_PER_HOUR,
+            global_limit=GLOBAL_SOUNDTRACK_WRITES_PER_DAY,
+        )
+        if limited:
+            return limited
 
-        if not prompt:
-            return JSONResponse({"error": "Missing prompt"}, status_code=400)
-        if not songs:
-            return JSONResponse({"error": "Missing songs"}, status_code=400)
+        prompt = payload.prompt.strip()
+        playlist_name = payload.playlist_name.strip()
+        songs = [song.model_dump(exclude_none=True) for song in payload.songs]
+        spotify_url = payload.spotify_url
 
         soundtrack = save_soundtrack(
             prompt=prompt,
@@ -221,10 +358,6 @@ async def create_soundtrack(request: Request):
     except Exception as e:
         print("🔥 Exception while creating soundtrack:", str(e))
         return JSONResponse({"error": "Failed to create soundtrack"}, status_code=500)
-
-@app.get("/storage_status")
-def storage_status():
-    return get_supabase_status()
 
 @app.get("/prompt_placeholders")
 async def get_prompt_placeholders():
