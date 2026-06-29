@@ -607,15 +607,21 @@ function App() {
           <img src="/butterfly-logo.png" alt="" className="h-12 w-12" />
         </button>
 
-        {(mode === 'login' || isTestRoute) && mode !== null && (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="secondary-action"
-          >
-            {mode === 'login' ? 'Log out' : 'Back'}
-          </button>
-        )}
+        <div className="header-actions">
+          <a href="/privacy.html" className="secondary-action">
+            Privacy
+          </a>
+
+          {(mode === 'login' || isTestRoute) && mode !== null && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="secondary-action"
+            >
+              {mode === 'login' ? 'Log out' : 'Back'}
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="app-main">
