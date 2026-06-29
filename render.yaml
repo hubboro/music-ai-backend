@@ -29,3 +29,16 @@ services:
         value: 100
       - key: MAX_PLAYLIST_REPAIR_ATTEMPTS
         value: 1
+  - type: cron
+    name: butterfly-supabase-heartbeat
+    runtime: python
+    schedule: "17 4 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/supabase_heartbeat.py
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: HEARTBEAT_MAX_RANDOM_DELAY_SECONDS
+        value: 600

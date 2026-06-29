@@ -46,6 +46,7 @@ music-ai-backend/
 ├── spotify_utils.py     # Spotify OAuth, playlist creation, track search
 ├── supabase_utils.py    # Persistent soundtrack storage and retrieval
 ├── supabase_schema.sql  # Soundtrack table schema
+├── scripts/             # Maintenance scripts, including Supabase heartbeat
 ├── placeholders.json    # Cached prompt examples (no API call on page load)
 ├── requirements.txt
 ├── render.yaml          # Render deployment config
@@ -96,6 +97,20 @@ You'll need:
 - **Cost protection** — per-IP limits, global daily caps, bounded request schemas, and a repeated-prompt cache protect OpenAI and Spotify usage
 
 The default limits allow 5 generations per IP per hour and 50 generations globally per day. They can be changed with the environment variables documented in [`.env.example`](.env.example). The in-memory limiter is designed for the current single-process Render deployment; use a shared Redis-backed limiter before scaling to multiple instances.
+
+---
+
+## Supabase heartbeat
+
+The app includes a small Render Cron Job that writes one daily operational heartbeat to Supabase. It does not call OpenAI or Spotify. The row stores lightweight health metrics such as total saved soundtracks, soundtracks created in the last 24 hours, and Spotify playlists linked in the last 24 hours.
+
+Before enabling the cron job, run the schema in [`supabase_schema.sql`](supabase_schema.sql) so the `app_heartbeat` table exists. Then configure the cron service with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in Render.
+
+Manual test:
+
+```bash
+python scripts/supabase_heartbeat.py --no-delay
+```
 
 ---
 

@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from dotenv import load_dotenv
@@ -23,6 +23,81 @@ def _headers():
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
+
+
+def _postgrest_count(response):
+    content_range = response.headers.get("Content-Range", "")
+    if "/" not in content_range:
+        return None
+
+    total = content_range.rsplit("/", 1)[-1]
+    if total == "*":
+        return None
+
+    try:
+        return int(total)
+    except ValueError:
+        return None
+
+
+def _count_soundtracks(params=None):
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/soundtracks",
+        headers={**_headers(), "Prefer": "count=exact"},
+        params={"select": "id", "limit": "1", **(params or {})},
+        timeout=10,
+    )
+    response.raise_for_status()
+    return _postgrest_count(response)
+
+
+def build_heartbeat_payload(source="render-cron", status="ok", metrics=None, error=None, checked_at=None):
+    checked_at = checked_at or datetime.now(timezone.utc)
+    payload = {
+        "run_date": checked_at.date().isoformat(),
+        "source": source,
+        "status": status,
+        "metrics": metrics or {},
+        "checked_at": checked_at.isoformat(),
+    }
+    if error:
+        payload["error"] = str(error)[:500]
+    return payload
+
+
+def save_app_heartbeat(source="render-cron"):
+    if not is_supabase_configured():
+        raise RuntimeError("Supabase is not configured")
+
+    checked_at = datetime.now(timezone.utc)
+    since_24h = (checked_at - timedelta(hours=24)).isoformat()
+    metrics = {}
+    status = "ok"
+    error = None
+
+    try:
+        metrics = {
+            "soundtracks_total": _count_soundtracks(),
+            "soundtracks_created_last_24h": _count_soundtracks({"created_at": f"gte.{since_24h}"}),
+            "spotify_playlists_linked_last_24h": _count_soundtracks(
+                {"created_at": f"gte.{since_24h}", "spotify_url": "not.is.null"}
+            ),
+        }
+    except Exception as e:
+        status = "degraded"
+        error = f"Could not collect soundtrack metrics: {e}"
+
+    payload = build_heartbeat_payload(source=source, status=status, metrics=metrics, error=error, checked_at=checked_at)
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/app_heartbeat",
+        headers={**_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+        params={"on_conflict": "run_date,source"},
+        json=payload,
+        timeout=10,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return data[0] if isinstance(data, list) and data else payload
 
 
 def _slugify(value):
