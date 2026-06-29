@@ -16,3 +16,17 @@ create table if not exists soundtracks (
 
 create index if not exists soundtracks_slug_idx on soundtracks (slug);
 create index if not exists soundtracks_created_at_idx on soundtracks (created_at desc);
+
+create table if not exists app_heartbeat (
+  id uuid primary key default gen_random_uuid(),
+  run_date date not null,
+  source text not null default 'render-cron',
+  status text not null default 'ok',
+  metrics jsonb not null default '{}'::jsonb,
+  error text,
+  checked_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (run_date, source)
+);
+
+create index if not exists app_heartbeat_checked_at_idx on app_heartbeat (checked_at desc);
