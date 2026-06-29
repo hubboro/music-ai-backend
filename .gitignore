@@ -18,3 +18,7 @@ __pycache__/
 
 # Codex working notes
 .codex-work/
+
+# Local AI tool scratch files
+.claude/
+music-playlist-frontend/.claude/

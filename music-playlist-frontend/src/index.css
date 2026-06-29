@@ -87,6 +87,10 @@
     @apply rounded-full px-3 py-2 text-xs font-semibold text-sage-500 transition duration-200 ease-out active:scale-95 active:bg-sage-100/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/70 focus-visible:ring-offset-4 focus-visible:ring-offset-transparent;
   }
 
+  .header-actions {
+    @apply flex items-center justify-end gap-1.5;
+  }
+
   .app-main {
     @apply flex flex-1 flex-col px-5;
     padding-bottom: calc(11.5rem + env(safe-area-inset-bottom));

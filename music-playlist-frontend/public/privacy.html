@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f0e8" />
+    <title>Butterfly Privacy Notice</title>
+    <style>
+      :root {
+        color: #1e2d1b;
+        background: #f4f0e8;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: linear-gradient(165deg, #edf3ea 0%, #f4f0e8 58%, #faf8f3 100%);
+      }
+
+      main {
+        box-sizing: border-box;
+        width: min(100%, 44rem);
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 3rem 1.25rem;
+      }
+
+      a {
+        color: #4a6b43;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0 0 1rem;
+        font-size: clamp(2.25rem, 9vw, 4rem);
+        line-height: 0.95;
+      }
+
+      h2 {
+        margin: 2rem 0 0.6rem;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      p,
+      li {
+        color: #3a5434;
+        font-size: 1rem;
+        line-height: 1.7;
+      }
+
+      ul {
+        padding-left: 1.2rem;
+      }
+
+      .back-link {
+        display: inline-flex;
+        margin-bottom: 2.5rem;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a class="back-link" href="/">Back to Butterfly</a>
+      <h1>Privacy Notice</h1>
+      <p>Butterfly is a small portfolio project that turns user prompts into shareable music soundtracks.</p>
+
+      <h2>What is stored</h2>
+      <p>When you create or share a soundtrack, the backend may store:</p>
+      <ul>
+        <li>the prompt you typed</li>
+        <li>the generated playlist name</li>
+        <li>the generated song list</li>
+        <li>the Spotify playlist URL, if a Spotify playlist is created</li>
+        <li>basic operational metadata such as creation time and lightweight usage counters</li>
+      </ul>
+
+      <h2>Why it is stored</h2>
+      <p>This data is stored to make share links work, let users reopen recent soundtracks, and keep basic operational visibility for the demo.</p>
+
+      <h2>What is not stored intentionally</h2>
+      <p>The app is not designed to store passwords, payment information, or private Spotify account data. Spotify access tokens are only used to create playlists through the selected Spotify flow.</p>
+
+      <h2>Retention and deletion</h2>
+      <p>Soundtrack records may remain in the database until they are manually removed. To request deletion of a soundtrack record, open an issue in the project repository and include the share URL or soundtrack slug.</p>
+
+      <p>Do not put sensitive personal information in prompts.</p>
+    </main>
+  </body>
+</html>

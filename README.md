@@ -88,6 +88,14 @@ You'll need:
 
 ---
 
+## Privacy and license
+
+Butterfly stores prompts and generated soundtrack data when shareable soundtrack pages are created. See [PRIVACY.md](PRIVACY.md) for details.
+
+The source code is released under the [MIT License](LICENSE). Security reporting guidance is in [SECURITY.md](SECURITY.md).
+
+---
+
 ## Key design decisions
 
 - **No login required by default** — the app uses a stored Spotify account token to create public playlists, removing all friction for new users
