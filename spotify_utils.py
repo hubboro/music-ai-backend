@@ -31,7 +31,6 @@ BAD_VERSION_TERMS = (
 )
 MIN_STRICT_MATCH_SCORE = 80
 MIN_RELAXED_MATCH_SCORE = 88
-MIN_TRACK_POPULARITY = 25
 
 def get_spotify_auth_url():
     query = urlencode({
@@ -166,8 +165,6 @@ def _best_track_match(song: dict, items: list, minimum_score: int):
     scored_items = []
     for item in items:
         if _has_bad_version_marker(item):
-            continue
-        if item.get("popularity", 0) < MIN_TRACK_POPULARITY:
             continue
         score = _score_track_match(song, item)
         if score >= minimum_score:
