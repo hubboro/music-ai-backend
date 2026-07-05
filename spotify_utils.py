@@ -161,6 +161,20 @@ def _format_track_result(track: dict, score: int):
         "match_score": score
     }
 
+
+def _spotify_error_message(response, fallback="Spotify request failed"):
+    try:
+        data = response.json()
+    except ValueError:
+        return response.text[:240] or fallback
+
+    error = data.get("error") if isinstance(data, dict) else None
+    if isinstance(error, dict):
+        return error.get("message") or error.get("reason") or fallback
+    if isinstance(error, str):
+        return error
+    return fallback
+
 def _best_track_match(song: dict, items: list, minimum_score: int):
     scored_items = []
     for item in items:
@@ -310,21 +324,21 @@ async def create_playlist_from_tracks(
     if "error" in profile:
         raise HTTPException(status_code=401, detail=f"Spotify auth error: {profile['error']['message']}")
 
-    user_id = profile["id"]
-
     playlist_title = playlist_name if isinstance(playlist_name, str) and playlist_name.strip() else "Butterfly Playlist"
     description_clean = playlist_description or "Made with Butterfly from a feeling."
 
     playlist_create_response = requests.post(
-        f"https://api.spotify.com/v1/users/{user_id}/playlists",
+        "https://api.spotify.com/v1/me/playlists",
         headers=headers,
         json={"name": playlist_title, "description": description_clean, "public": public},
         timeout=10,
     )
     playlist_response = playlist_create_response.json()
 
-    if "error" in playlist_response:
-        raise Exception(f"Spotify error: {playlist_response['error']['message']}")
+    if not playlist_create_response.ok or "error" in playlist_response:
+        message = _spotify_error_message(playlist_create_response, "Could not create Spotify playlist")
+        print(f"❌ Spotify playlist create failed ({playlist_create_response.status_code}): {message}")
+        raise HTTPException(status_code=502, detail=f"Spotify playlist create failed: {message}")
 
     playlist_id = playlist_response["id"]
     add_tracks_response = requests.post(
@@ -334,7 +348,9 @@ async def create_playlist_from_tracks(
         timeout=10,
     )
     if not add_tracks_response.ok:
-        raise HTTPException(status_code=502, detail="Spotify could not add tracks")
+        message = _spotify_error_message(add_tracks_response, "Could not add tracks to Spotify playlist")
+        print(f"❌ Spotify add tracks failed ({add_tracks_response.status_code}): {message}")
+        raise HTTPException(status_code=502, detail=f"Spotify add tracks failed: {message}")
 
     return playlist_response["external_urls"]["spotify"], added_songs
 
