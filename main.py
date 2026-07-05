@@ -185,6 +185,9 @@ async def generate_playlist(payload: GeneratePlaylistRequest, request: Request):
         song_list = result.get("songs", [])
         search_token = get_spotify_search_token()
         matched_songs = await match_spotify_tracks(song_list, search_token)
+        if not matched_songs:
+            print("⚠️ Spotify matched 0 tracks for generated playlist:", playlist_name)
+            return JSONResponse({"error": "no_spotify_matches"}, status_code=502)
 
         print("✅ Soundtrack matched:", playlist_name)
         soundtrack = None

@@ -179,6 +179,29 @@ def _best_track_match(song: dict, items: list, minimum_score: int):
     score, track = max(scored_items, key=lambda scored_item: scored_item[0])
     return _format_track_result(track, score)
 
+
+def _log_search_candidates(song: dict, items: list):
+    candidates = []
+    seen_ids = set()
+    for item in items:
+        item_id = item.get("id") or item.get("uri")
+        if item_id in seen_ids:
+            continue
+        seen_ids.add(item_id)
+        candidates.append(
+            {
+                "title": item.get("name", ""),
+                "artist": ", ".join(_artist_names(item)),
+                "popularity": item.get("popularity", 0),
+                "bad_version": _has_bad_version_marker(item),
+                "score": _score_track_match(song, item),
+            }
+        )
+
+    candidates = sorted(candidates, key=lambda candidate: candidate["score"], reverse=True)[:3]
+    if candidates:
+        print(f"🔎 Top Spotify candidates for {song.get('title', '')} — {song.get('artist', '')}: {candidates}")
+
 async def _spotify_search(client: httpx.AsyncClient, headers: dict, query: str, limit: int = 5):
     response = await client.get(
         "https://api.spotify.com/v1/search",
@@ -186,6 +209,11 @@ async def _spotify_search(client: httpx.AsyncClient, headers: dict, query: str, 
         params={"q": query, "type": "track", "limit": limit}
     )
     data = response.json()
+    if not response.is_success:
+        error = data.get("error") if isinstance(data, dict) else {}
+        message = error.get("message") if isinstance(error, dict) else response.text[:200]
+        print(f"❌ Spotify search failed ({response.status_code}): {message}")
+        raise HTTPException(status_code=502, detail="Spotify search failed")
     return data.get("tracks", {}).get("items") or []
 
 async def _search_track(client: httpx.AsyncClient, headers: dict, song: dict):
@@ -204,6 +232,7 @@ async def _search_track(client: httpx.AsyncClient, headers: dict, song: dict):
     if relaxed_match:
         return relaxed_match
 
+    _log_search_candidates(song, strict_items + relaxed_items)
     print(f"⚠️ Skipping weak Spotify match: {title} — {artist}")
     return None
 
@@ -235,7 +264,9 @@ async def match_spotify_tracks(song_list, access_token):
     async with httpx.AsyncClient() as client:
         results = await asyncio.gather(*[_search_track(client, headers, song) for song in song_list])
 
-    return _dedupe_matched_tracks(results)
+    matched_tracks = _dedupe_matched_tracks(results)
+    print(f"🎧 Spotify matched {len(matched_tracks)}/{len(song_list or [])} tracks")
+    return matched_tracks
 
 async def create_playlist_from_tracks(
     song_list,

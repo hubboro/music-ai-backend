@@ -370,6 +370,8 @@ function App() {
         localStorage.removeItem('spotify_token_timestamp');
       } else if (err?.response?.data?.error === 'rate_limited') {
         setError('Butterfly is taking a breather - too many playlists at once. Try again in a moment.');
+      } else if (err?.response?.data?.error === 'no_spotify_matches') {
+        setError('Spotify could not match songs for this idea. Try a more specific mood, artist, era, or genre.');
       } else if (['invalid_request', 'request_too_large'].includes(err?.response?.data?.error)) {
         setError('Keep the idea short and simple, then try again.');
       } else {
