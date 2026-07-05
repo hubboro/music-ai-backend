@@ -100,6 +100,7 @@ The source code is released under the [MIT License](LICENSE). Security reporting
 
 - **No login required by default** — the app uses a stored Spotify account token to create public playlists, removing all friction for new users
 - **Parallel Spotify search** — all 10 track searches run concurrently, cutting response time significantly
+- **Playlist engine rollout** — `PLAYLIST_ENGINE_VERSION=v1` keeps the stable LLM-first engine, while `v2` enables a candidate-pool and reranking engine for more discovery-heavy playlists
 - **OpenAI JSON mode** — guarantees structured output without fragile string parsing
 - **Guest vs. logged-in flow** — users can optionally log in to get playlists in their own Spotify library; the login flow is available at `/test`
 - **Cost protection** — per-IP limits, global daily caps, bounded request schemas, and a repeated-prompt cache protect OpenAI and Spotify usage

@@ -15,10 +15,10 @@ from spotify_utils import (
     get_app_access_token,
     get_spotify_search_token,
     create_playlist_from_tracks,
-    match_spotify_tracks,
     refresh_access_token,
 )
-from openai_utils import generate_playlist_data, generate_prompt_placeholders
+from openai_utils import generate_prompt_placeholders
+from playlist_engine import generate_playlist as generate_playlist_from_engine
 from supabase_utils import get_soundtrack_by_slug, save_soundtrack, update_soundtrack_spotify_url
 
 load_dotenv()
@@ -179,17 +179,17 @@ async def generate_playlist(payload: GeneratePlaylistRequest, request: Request):
 
         prompt = payload.prompt
 
+        search_token = get_spotify_search_token()
         async with generation_slots:
-            result = await asyncio.to_thread(generate_playlist_data, prompt)
+            result = await generate_playlist_from_engine(prompt, search_token)
         playlist_name = result.get("name", "Butterfly Playlist")
         song_list = result.get("songs", [])
-        search_token = get_spotify_search_token()
-        matched_songs = await match_spotify_tracks(song_list, search_token)
+        matched_songs = result.get("matched_songs", [])
         if not matched_songs:
             print("⚠️ Spotify matched 0 tracks for generated playlist:", playlist_name)
             return JSONResponse({"error": "no_spotify_matches"}, status_code=502)
 
-        print("✅ Soundtrack matched:", playlist_name)
+        print("✅ Soundtrack matched:", playlist_name, "via", result.get("engine_version", "v1"))
         soundtrack = None
         try:
             soundtrack = save_soundtrack(

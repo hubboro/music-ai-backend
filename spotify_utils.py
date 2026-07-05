@@ -162,6 +162,13 @@ def _format_track_result(track: dict, score: int):
     }
 
 
+def _with_candidate_metadata(match: dict, song: dict):
+    for key in ("bucket", "familiarity", "energy", "reason"):
+        if song.get(key) is not None:
+            match[key] = song.get(key)
+    return match
+
+
 def _spotify_error_message(response, fallback="Spotify request failed"):
     try:
         data = response.json()
@@ -235,13 +242,13 @@ async def _search_track(client: httpx.AsyncClient, headers: dict, song: dict):
     strict_items = await _spotify_search(client, headers, strict_query)
     strict_match = _best_track_match(song, strict_items, MIN_STRICT_MATCH_SCORE)
     if strict_match:
-        return strict_match
+        return _with_candidate_metadata(strict_match, song)
 
     relaxed_query = f"{title} {artist}"
     relaxed_items = await _spotify_search(client, headers, relaxed_query)
     relaxed_match = _best_track_match(song, relaxed_items, MIN_RELAXED_MATCH_SCORE)
     if relaxed_match:
-        return relaxed_match
+        return _with_candidate_metadata(relaxed_match, song)
 
     _log_search_candidates(song, strict_items + relaxed_items)
     print(f"⚠️ Skipping weak Spotify match: {title} — {artist}")
@@ -263,6 +270,10 @@ def _dedupe_matched_tracks(results):
             "artist": result["artist"],
             "spotify_uri": result.get("spotify_uri") or result.get("uri"),
             "match_score": result.get("match_score"),
+            "bucket": result.get("bucket"),
+            "familiarity": result.get("familiarity"),
+            "energy": result.get("energy"),
+            "reason": result.get("reason"),
         })
     return matched_songs
 

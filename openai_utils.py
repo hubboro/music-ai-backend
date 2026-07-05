@@ -16,6 +16,7 @@ _playlist_cache_lock = Lock()
 PLAYLIST_CACHE_TTL_SECONDS = int(os.getenv("PLAYLIST_CACHE_TTL_SECONDS", "86400"))
 PLAYLIST_CACHE_MAX_ENTRIES = int(os.getenv("PLAYLIST_CACHE_MAX_ENTRIES", "200"))
 MAX_PLAYLIST_REPAIR_ATTEMPTS = max(0, min(int(os.getenv("MAX_PLAYLIST_REPAIR_ATTEMPTS", "1")), 2))
+V2_CANDIDATE_COUNT = max(24, min(int(os.getenv("PLAYLIST_V2_CANDIDATE_COUNT", "40")), 50))
 
 
 def _get_client():
@@ -98,6 +99,15 @@ REPAIR_SYSTEM_PROMPT = (
     "for a casual young listener. Return corrected structured JSON only. Do not explain."
 )
 
+V2_CANDIDATE_SYSTEM_PROMPT = (
+    "You are Butterfly's discovery-first music curator. Your job is to create a rich candidate pool "
+    "for a playlist engine, not a final playlist. Think like a trusted music friend: emotionally precise, "
+    "listenable, surprising, and allergic to obvious algorithm-core filler. Include enough familiar anchors "
+    "to orient the listener, but prefer fresh discoveries, adjacent scenes, underplayed tracks, and tasteful "
+    "left-field choices. Avoid fake tracks and avoid karaoke, tribute, cover, sped-up, slowed, live, remix, "
+    "or instrumental versions unless explicitly requested. Return structured JSON only."
+)
+
 def _parse_playlist_json(content: str):
     try:
         data = json.loads(content)
@@ -120,6 +130,37 @@ def _clean_playlist_data(data):
             songs.append({"title": title, "artist": artist})
 
     return {"name": name, "songs": songs[:10]}
+
+
+def _clean_candidate_data(data):
+    name = str(data.get("name") or "Untitled Playlist").strip()
+    candidates = []
+    valid_buckets = {"anchor", "discovery", "deep_cut", "wildcard", "closer"}
+    valid_familiarity = {"known", "medium", "obscure"}
+
+    for candidate in data.get("candidates", []):
+        if not isinstance(candidate, dict):
+            continue
+        title = str(candidate.get("title") or "").strip()
+        artist = str(candidate.get("artist") or "").strip()
+        if not title or not artist:
+            continue
+        bucket = str(candidate.get("bucket") or "discovery").strip().lower()
+        familiarity = str(candidate.get("familiarity") or "medium").strip().lower()
+        try:
+            energy = float(candidate.get("energy", 0.5))
+        except (TypeError, ValueError):
+            energy = 0.5
+        candidates.append({
+            "title": title,
+            "artist": artist,
+            "bucket": bucket if bucket in valid_buckets else "discovery",
+            "familiarity": familiarity if familiarity in valid_familiarity else "medium",
+            "energy": min(max(energy, 0.0), 1.0),
+            "reason": str(candidate.get("reason") or "").strip()[:180],
+        })
+
+    return {"name": name, "candidates": candidates[:V2_CANDIDATE_COUNT]}
 
 def _normalize_artist(artist: str):
     return " ".join(artist.lower().replace("&", "and").split())
@@ -254,6 +295,49 @@ def generate_playlist_data(prompt: str):
     except Exception as e:
         print("❌ Error generating or repairing playlist:", e)
         return _clean_playlist_data(_parse_playlist_json(response.choices[0].message.content))
+
+
+def generate_candidate_playlist_data(prompt: str):
+    response = _get_client().chat.completions.create(
+        model="gpt-4.1-mini",
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": V2_CANDIDATE_SYSTEM_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Create a discovery-first Spotify candidate pool for this prompt: '{prompt}'\n\n"
+                    f"Return exactly {V2_CANDIDATE_COUNT} candidates if possible.\n"
+                    "Candidate mix:\n"
+                    "- 6-8 anchor tracks: emotionally fitting, somewhat recognizable, never lazy\n"
+                    "- 14-18 discovery tracks: fresh, saveable, not too obscure\n"
+                    "- 6-10 deep cuts: underplayed but accessible\n"
+                    "- 3-5 wildcard tracks: surprising but emotionally defensible\n"
+                    "- 2-4 closer/opener candidates with strong sequencing potential\n\n"
+                    "Rules:\n"
+                    "- Prefer interesting discovery over consensus popularity\n"
+                    "- Avoid repeating artists\n"
+                    "- Avoid tracks that feel overused for generic prompt playlists unless they are perfect\n"
+                    "- Use exact artist names and song titles as they appear on Spotify\n"
+                    "- Avoid fake, uncertain, karaoke, tribute, cover, sped-up, slowed, live, remix, or instrumental versions\n"
+                    "- Each candidate needs bucket, familiarity, energy from 0 to 1, and a short reason\n\n"
+                    "Return JSON: {\"name\": \"...\", \"candidates\": "
+                    "[{\"title\": \"...\", \"artist\": \"...\", \"bucket\": \"anchor|discovery|deep_cut|wildcard|closer\", "
+                    "\"familiarity\": \"known|medium|obscure\", \"energy\": 0.5, \"reason\": \"...\"}, ...]}"
+                )
+            }
+        ],
+    )
+
+    try:
+        data = json.loads(response.choices[0].message.content)
+        return _clean_candidate_data(data)
+    except Exception as e:
+        print("❌ Error generating candidate playlist:", e)
+        return {"name": "Untitled Playlist", "candidates": []}
 
 def generate_prompt_placeholders():
     try:

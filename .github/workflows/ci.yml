@@ -20,9 +20,9 @@ jobs:
       - name: Install dependencies and audit tools
         run: pip install -r requirements.txt pip-audit bandit ruff
       - name: Lint
-        run: ruff check main.py api_protection.py openai_utils.py spotify_utils.py supabase_utils.py tests
+        run: ruff check main.py api_protection.py openai_utils.py playlist_engine.py spotify_utils.py supabase_utils.py tests
       - name: Security scan
-        run: bandit -q -r main.py api_protection.py openai_utils.py spotify_utils.py supabase_utils.py
+        run: bandit -q -r main.py api_protection.py openai_utils.py playlist_engine.py spotify_utils.py supabase_utils.py
       - name: Dependency audit
         run: pip-audit -r requirements.txt
       - name: Tests
