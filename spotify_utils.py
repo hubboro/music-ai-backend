@@ -342,7 +342,7 @@ async def create_playlist_from_tracks(
 
     playlist_id = playlist_response["id"]
     add_tracks_response = requests.post(
-        f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
+        f"https://api.spotify.com/v1/playlists/{playlist_id}/items",
         headers=headers,
         json={"uris": uris},
         timeout=10,
