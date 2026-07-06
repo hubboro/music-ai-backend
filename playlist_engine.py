@@ -114,6 +114,16 @@ def rerank_candidates(candidates, limit=10):
     ]
 
 
+def _format_shadow_tracks(tracks):
+    return [
+        (
+            f"{index + 1}. {track.get('title', '')} — {track.get('artist', '')} "
+            f"[{_bucket(track)}/{_familiarity(track)}]"
+        )
+        for index, track in enumerate(tracks)
+    ]
+
+
 async def generate_playlist_v1(prompt, search_token):
     result = await asyncio.to_thread(generate_playlist_data, prompt)
     songs = result.get("songs", [])
@@ -157,6 +167,7 @@ async def _run_shadow_v2(prompt, search_token):
             f"{len(result.get('matched_songs', []))}/10 selected",
             f"from {result.get('validated_count', 0)} validated",
         )
+        print("🧪 V2 shadow selected:", _format_shadow_tracks(result.get("matched_songs", [])))
     except Exception as e:
         print("🧪 V2 shadow failed:", str(e))
 

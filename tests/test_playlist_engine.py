@@ -1,6 +1,6 @@
 import unittest
 
-from playlist_engine import rerank_candidates, score_candidate
+from playlist_engine import _format_shadow_tracks, rerank_candidates, score_candidate
 
 
 def candidate(title, artist, bucket="discovery", familiarity="medium", energy=0.5, score=90):
@@ -46,6 +46,14 @@ class PlaylistEngineRerankerTests(unittest.TestCase):
         self.assertEqual(len(artists), len(set(artists)))
         self.assertGreaterEqual(discovery_count, 4)
         self.assertEqual(selected[-1]["bucket"], "closer")
+
+    def test_shadow_track_format_includes_title_artist_and_metadata(self):
+        tracks = [candidate("Shadow Song", "Shadow Artist", "deep_cut", "obscure")]
+
+        self.assertEqual(
+            _format_shadow_tracks(tracks),
+            ["1. Shadow Song — Shadow Artist [deep_cut/obscure]"],
+        )
 
 
 if __name__ == "__main__":

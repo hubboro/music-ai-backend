@@ -318,6 +318,8 @@ def generate_candidate_playlist_data(prompt: str):
                     "- 3-5 wildcard tracks: surprising but emotionally defensible\n"
                     "- 2-4 closer/opener candidates with strong sequencing potential\n\n"
                     "Rules:\n"
+                    "- Playlist name must be natural, elegant, 2-5 words, and easy to show in the app\n"
+                    "- Playlist name must not use jokes, commas, slang filler, apostrophe decades like 90's, or phrases like 'but not only'\n"
                     "- Prefer interesting discovery over consensus popularity\n"
                     "- Avoid repeating artists\n"
                     "- Avoid tracks that feel overused for generic prompt playlists unless they are perfect\n"
