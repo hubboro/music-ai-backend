@@ -17,6 +17,7 @@ PLAYLIST_CACHE_TTL_SECONDS = int(os.getenv("PLAYLIST_CACHE_TTL_SECONDS", "86400"
 PLAYLIST_CACHE_MAX_ENTRIES = int(os.getenv("PLAYLIST_CACHE_MAX_ENTRIES", "200"))
 MAX_PLAYLIST_REPAIR_ATTEMPTS = max(0, min(int(os.getenv("MAX_PLAYLIST_REPAIR_ATTEMPTS", "1")), 2))
 V2_CANDIDATE_COUNT = max(24, min(int(os.getenv("PLAYLIST_V2_CANDIDATE_COUNT", "40")), 50))
+V2_CANDIDATE_MODEL = os.getenv("PLAYLIST_V2_MODEL", "gpt-4.1-mini")
 
 
 def _get_client():
@@ -299,7 +300,7 @@ def generate_playlist_data(prompt: str):
 
 def generate_candidate_playlist_data(prompt: str):
     response = _get_client().chat.completions.create(
-        model="gpt-4.1-mini",
+        model=V2_CANDIDATE_MODEL,
         response_format={"type": "json_object"},
         messages=[
             {

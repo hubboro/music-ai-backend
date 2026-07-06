@@ -2,7 +2,7 @@ import asyncio
 import re
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Request, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -18,7 +18,11 @@ from spotify_utils import (
     refresh_access_token,
 )
 from openai_utils import generate_prompt_placeholders
-from playlist_engine import generate_playlist as generate_playlist_from_engine
+from playlist_engine import (
+    generate_playlist as generate_playlist_from_engine,
+    run_shadow_v2,
+    should_run_shadow_v2,
+)
 from supabase_utils import get_soundtrack_by_slug, save_soundtrack, update_soundtrack_spotify_url
 
 load_dotenv()
@@ -166,7 +170,11 @@ def _playlist_description(prompt):
 
 
 @app.post("/generate_playlist")
-async def generate_playlist(payload: GeneratePlaylistRequest, request: Request):
+async def generate_playlist(
+    payload: GeneratePlaylistRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
     try:
         limited = enforce_rate_limit(
             request,
@@ -182,6 +190,8 @@ async def generate_playlist(payload: GeneratePlaylistRequest, request: Request):
         search_token = get_spotify_search_token()
         async with generation_slots:
             result = await generate_playlist_from_engine(prompt, search_token)
+        if result.get("engine_version") == "v1" and should_run_shadow_v2():
+            background_tasks.add_task(run_shadow_v2, prompt, search_token)
         playlist_name = result.get("name", "Butterfly Playlist")
         song_list = result.get("songs", [])
         matched_songs = result.get("matched_songs", [])

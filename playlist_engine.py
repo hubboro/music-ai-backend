@@ -158,7 +158,11 @@ async def generate_playlist_v2(prompt, search_token):
     }
 
 
-async def _run_shadow_v2(prompt, search_token):
+def should_run_shadow_v2():
+    return SHADOW_V2
+
+
+async def run_shadow_v2(prompt, search_token):
     try:
         result = await generate_playlist_v2(prompt, search_token)
         print(
@@ -183,6 +187,4 @@ async def generate_playlist(prompt, search_token, engine_version=None):
             return await generate_playlist_v1(prompt, search_token)
 
     result = await generate_playlist_v1(prompt, search_token)
-    if SHADOW_V2:
-        await _run_shadow_v2(prompt, search_token)
     return deepcopy(result)

@@ -1,8 +1,11 @@
+import asyncio
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from pydantic import ValidationError
 from fastapi.testclient import TestClient
 
+import main
 from main import CreateSoundtrackRequest, GeneratePlaylistRequest, SongRequest, app
 
 
@@ -51,6 +54,50 @@ class ApiGuardTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json(), {"error": "request_too_large"})
+
+    def test_generation_schedules_shadow_without_waiting(self):
+        class BackgroundTaskCollector:
+            def __init__(self):
+                self.tasks = []
+
+            def add_task(self, task, *args, **kwargs):
+                self.tasks.append((task, args, kwargs))
+
+        background_tasks = BackgroundTaskCollector()
+        payload = GeneratePlaylistRequest(prompt="late train home")
+
+        async def shadow_task(prompt, search_token):
+            return None
+
+        engine_result = {
+            "name": "Late Train Home",
+            "songs": [{"title": "Song", "artist": "Artist"}],
+            "matched_songs": [{"title": "Song", "artist": "Artist", "spotify_uri": "spotify:track:abc"}],
+            "engine_version": "v1",
+        }
+
+        with (
+            patch.object(main, "enforce_rate_limit", return_value=None),
+            patch.object(main, "get_spotify_search_token", return_value="search-token"),
+            patch.object(main, "generate_playlist_from_engine", new=AsyncMock(return_value=engine_result)),
+            patch.object(main, "should_run_shadow_v2", return_value=True),
+            patch.object(main, "run_shadow_v2", new=shadow_task),
+            patch.object(main, "save_soundtrack", return_value={"slug": "late-train-home"}),
+        ):
+            response = asyncio.run(
+                main.generate_playlist(
+                    payload=payload,
+                    request=object(),
+                    background_tasks=background_tasks,
+                )
+            )
+
+        self.assertEqual(response["playlist_name"], "Late Train Home")
+        self.assertEqual(len(background_tasks.tasks), 1)
+        task, args, kwargs = background_tasks.tasks[0]
+        self.assertIs(task, shadow_task)
+        self.assertEqual(args, ("late train home", "search-token"))
+        self.assertEqual(kwargs, {})
 
 
 if __name__ == "__main__":
