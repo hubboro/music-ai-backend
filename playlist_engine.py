@@ -7,6 +7,7 @@ from spotify_utils import match_spotify_tracks
 
 DEFAULT_ENGINE_VERSION = os.getenv("PLAYLIST_ENGINE_VERSION", "v1").strip().lower()
 MIN_V2_VALIDATED_TRACKS = max(10, min(int(os.getenv("PLAYLIST_V2_MIN_VALIDATED_TRACKS", "14")), 24))
+SHADOW_V2_TIMEOUT_SECONDS = max(15, min(int(os.getenv("PLAYLIST_V2_SHADOW_TIMEOUT_SECONDS", "45")), 180))
 
 BUCKET_BONUS = {
     "anchor": 8,
@@ -169,8 +170,11 @@ def shadow_v2_config_label():
 
 async def run_shadow_v2(prompt, search_token):
     try:
-        print("🧪 V2 shadow started")
-        result = await generate_playlist_v2(prompt, search_token)
+        print("🧪 V2 shadow started:", f"timeout={SHADOW_V2_TIMEOUT_SECONDS}s")
+        result = await asyncio.wait_for(
+            generate_playlist_v2(prompt, search_token),
+            timeout=SHADOW_V2_TIMEOUT_SECONDS,
+        )
         print(
             "🧪 V2 shadow generated:",
             result.get("name"),
@@ -178,6 +182,8 @@ async def run_shadow_v2(prompt, search_token):
             f"from {result.get('validated_count', 0)} validated",
         )
         print("🧪 V2 shadow selected:", _format_shadow_tracks(result.get("matched_songs", [])))
+    except asyncio.TimeoutError:
+        print("🧪 V2 shadow failed:", f"timed out after {SHADOW_V2_TIMEOUT_SECONDS}s")
     except Exception as e:
         print("🧪 V2 shadow failed:", str(e))
 

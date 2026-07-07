@@ -31,6 +31,7 @@ BAD_VERSION_TERMS = (
 )
 MIN_STRICT_MATCH_SCORE = 80
 MIN_RELAXED_MATCH_SCORE = 88
+SPOTIFY_SEARCH_TIMEOUT_SECONDS = max(3, min(int(os.getenv("SPOTIFY_SEARCH_TIMEOUT_SECONDS", "6")), 20))
 
 def get_spotify_auth_url():
     query = urlencode({
@@ -283,7 +284,7 @@ async def match_spotify_tracks(song_list, access_token):
         "Content-Type": "application/json"
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=SPOTIFY_SEARCH_TIMEOUT_SECONDS) as client:
         results = await asyncio.gather(*[_search_track(client, headers, song) for song in song_list])
 
     matched_tracks = _dedupe_matched_tracks(results)

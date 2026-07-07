@@ -18,6 +18,7 @@ PLAYLIST_CACHE_MAX_ENTRIES = int(os.getenv("PLAYLIST_CACHE_MAX_ENTRIES", "200"))
 MAX_PLAYLIST_REPAIR_ATTEMPTS = max(0, min(int(os.getenv("MAX_PLAYLIST_REPAIR_ATTEMPTS", "1")), 2))
 V2_CANDIDATE_COUNT = max(24, min(int(os.getenv("PLAYLIST_V2_CANDIDATE_COUNT", "40")), 50))
 V2_CANDIDATE_MODEL = os.getenv("PLAYLIST_V2_MODEL", "gpt-4.1-mini")
+V2_CANDIDATE_TIMEOUT_SECONDS = max(10, min(int(os.getenv("PLAYLIST_V2_OPENAI_TIMEOUT_SECONDS", "20")), 60))
 
 
 def _get_client():
@@ -299,40 +300,44 @@ def generate_playlist_data(prompt: str):
 
 
 def generate_candidate_playlist_data(prompt: str):
-    response = _get_client().chat.completions.create(
-        model=V2_CANDIDATE_MODEL,
-        response_format={"type": "json_object"},
-        messages=[
-            {
-                "role": "system",
-                "content": V2_CANDIDATE_SYSTEM_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Create a discovery-first Spotify candidate pool for this prompt: '{prompt}'\n\n"
-                    f"Return exactly {V2_CANDIDATE_COUNT} candidates if possible.\n"
-                    "Candidate mix:\n"
-                    "- 6-8 anchor tracks: emotionally fitting, somewhat recognizable, never lazy\n"
-                    "- 14-18 discovery tracks: fresh, saveable, not too obscure\n"
-                    "- 6-10 deep cuts: underplayed but accessible\n"
-                    "- 3-5 wildcard tracks: surprising but emotionally defensible\n"
-                    "- 2-4 closer/opener candidates with strong sequencing potential\n\n"
-                    "Rules:\n"
-                    "- Playlist name must be natural, elegant, 2-5 words, and easy to show in the app\n"
-                    "- Playlist name must not use jokes, commas, slang filler, apostrophe decades like 90's, or phrases like 'but not only'\n"
-                    "- Prefer interesting discovery over consensus popularity\n"
-                    "- Avoid repeating artists\n"
-                    "- Avoid tracks that feel overused for generic prompt playlists unless they are perfect\n"
-                    "- Use exact artist names and song titles as they appear on Spotify\n"
-                    "- Avoid fake, uncertain, karaoke, tribute, cover, sped-up, slowed, live, remix, or instrumental versions\n"
-                    "- Each candidate needs bucket, familiarity, energy from 0 to 1, and a short reason\n\n"
-                    "Return JSON: {\"name\": \"...\", \"candidates\": "
-                    "[{\"title\": \"...\", \"artist\": \"...\", \"bucket\": \"anchor|discovery|deep_cut|wildcard|closer\", "
-                    "\"familiarity\": \"known|medium|obscure\", \"energy\": 0.5, \"reason\": \"...\"}, ...]}"
-                )
-            }
-        ],
+    response = (
+        _get_client()
+        .with_options(timeout=V2_CANDIDATE_TIMEOUT_SECONDS, max_retries=0)
+        .chat.completions.create(
+            model=V2_CANDIDATE_MODEL,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": V2_CANDIDATE_SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Create a discovery-first Spotify candidate pool for this prompt: '{prompt}'\n\n"
+                        f"Return exactly {V2_CANDIDATE_COUNT} candidates if possible.\n"
+                        "Candidate mix:\n"
+                        "- 6-8 anchor tracks: emotionally fitting, somewhat recognizable, never lazy\n"
+                        "- 14-18 discovery tracks: fresh, saveable, not too obscure\n"
+                        "- 6-10 deep cuts: underplayed but accessible\n"
+                        "- 3-5 wildcard tracks: surprising but emotionally defensible\n"
+                        "- 2-4 closer/opener candidates with strong sequencing potential\n\n"
+                        "Rules:\n"
+                        "- Playlist name must be natural, elegant, 2-5 words, and easy to show in the app\n"
+                        "- Playlist name must not use jokes, commas, slang filler, apostrophe decades like 90's, or phrases like 'but not only'\n"
+                        "- Prefer interesting discovery over consensus popularity\n"
+                        "- Avoid repeating artists\n"
+                        "- Avoid tracks that feel overused for generic prompt playlists unless they are perfect\n"
+                        "- Use exact artist names and song titles as they appear on Spotify\n"
+                        "- Avoid fake, uncertain, karaoke, tribute, cover, sped-up, slowed, live, remix, or instrumental versions\n"
+                        "- Each candidate needs bucket, familiarity, energy from 0 to 1, and a short reason\n\n"
+                        "Return JSON: {\"name\": \"...\", \"candidates\": "
+                        "[{\"title\": \"...\", \"artist\": \"...\", \"bucket\": \"anchor|discovery|deep_cut|wildcard|closer\", "
+                        "\"familiarity\": \"known|medium|obscure\", \"energy\": 0.5, \"reason\": \"...\"}, ...]}"
+                    )
+                }
+            ],
+        )
     )
 
     try:
