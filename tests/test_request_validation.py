@@ -81,6 +81,7 @@ class ApiGuardTests(unittest.TestCase):
             patch.object(main, "get_spotify_search_token", return_value="search-token"),
             patch.object(main, "generate_playlist_from_engine", new=AsyncMock(return_value=engine_result)),
             patch.object(main, "should_run_shadow_v2", return_value=True),
+            patch.object(main, "shadow_v2_config_label", return_value="enabled=True engine=v1 raw_shadow='true'"),
             patch.object(main, "run_shadow_v2", new=shadow_task),
             patch.object(main, "save_soundtrack", return_value={"slug": "late-train-home"}),
         ):

@@ -21,6 +21,7 @@ from openai_utils import generate_prompt_placeholders
 from playlist_engine import (
     generate_playlist as generate_playlist_from_engine,
     run_shadow_v2,
+    shadow_v2_config_label,
     should_run_shadow_v2,
 )
 from supabase_utils import get_soundtrack_by_slug, save_soundtrack, update_soundtrack_spotify_url
@@ -191,7 +192,12 @@ async def generate_playlist(
         async with generation_slots:
             result = await generate_playlist_from_engine(prompt, search_token)
         if result.get("engine_version") == "v1" and should_run_shadow_v2():
+            print("🧪 V2 shadow scheduled:", shadow_v2_config_label())
             background_tasks.add_task(run_shadow_v2, prompt, search_token)
+        elif result.get("engine_version") == "v1":
+            print("🧪 V2 shadow disabled:", shadow_v2_config_label())
+        else:
+            print("🧪 V2 shadow skipped: active engine", result.get("engine_version"))
         playlist_name = result.get("name", "Butterfly Playlist")
         song_list = result.get("songs", [])
         matched_songs = result.get("matched_songs", [])

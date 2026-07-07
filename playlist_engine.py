@@ -5,8 +5,7 @@ from copy import deepcopy
 from openai_utils import generate_candidate_playlist_data, generate_playlist_data
 from spotify_utils import match_spotify_tracks
 
-DEFAULT_ENGINE_VERSION = os.getenv("PLAYLIST_ENGINE_VERSION", "v1").lower()
-SHADOW_V2 = os.getenv("PLAYLIST_ENGINE_SHADOW", "false").lower() == "true"
+DEFAULT_ENGINE_VERSION = os.getenv("PLAYLIST_ENGINE_VERSION", "v1").strip().lower()
 MIN_V2_VALIDATED_TRACKS = max(10, min(int(os.getenv("PLAYLIST_V2_MIN_VALIDATED_TRACKS", "14")), 24))
 
 BUCKET_BONUS = {
@@ -159,11 +158,18 @@ async def generate_playlist_v2(prompt, search_token):
 
 
 def should_run_shadow_v2():
-    return SHADOW_V2
+    return os.getenv("PLAYLIST_ENGINE_SHADOW", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def shadow_v2_config_label():
+    shadow_value = os.getenv("PLAYLIST_ENGINE_SHADOW", "false").strip()
+    engine_value = os.getenv("PLAYLIST_ENGINE_VERSION", "v1").strip().lower()
+    return f"enabled={should_run_shadow_v2()} engine={engine_value} raw_shadow={shadow_value!r}"
 
 
 async def run_shadow_v2(prompt, search_token):
     try:
+        print("🧪 V2 shadow started")
         result = await generate_playlist_v2(prompt, search_token)
         print(
             "🧪 V2 shadow generated:",
