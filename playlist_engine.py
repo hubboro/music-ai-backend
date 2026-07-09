@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from copy import deepcopy
 
 from openai_utils import generate_candidate_playlist_data, generate_playlist_data
@@ -124,6 +125,10 @@ def _format_shadow_tracks(tracks):
     ]
 
 
+def _elapsed_seconds(start):
+    return round(time.monotonic() - start, 2)
+
+
 async def generate_playlist_v1(prompt, search_token):
     result = await asyncio.to_thread(generate_playlist_data, prompt)
     songs = result.get("songs", [])
@@ -137,16 +142,53 @@ async def generate_playlist_v1(prompt, search_token):
 
 
 async def generate_playlist_v2(prompt, search_token):
+    total_start = time.monotonic()
+
+    openai_start = time.monotonic()
     result = await asyncio.to_thread(generate_candidate_playlist_data, prompt)
     candidates = result.get("candidates", [])
+    print(
+        "🧪 V2 timing:",
+        f"openai={_elapsed_seconds(openai_start)}s",
+        f"candidates={len(candidates)}",
+    )
+
+    spotify_start = time.monotonic()
     validated = await match_spotify_tracks(candidates, search_token)
+    print(
+        "🧪 V2 timing:",
+        f"spotify={_elapsed_seconds(spotify_start)}s",
+        f"validated={len(validated)}/{len(candidates)}",
+    )
 
     if len(validated) < MIN_V2_VALIDATED_TRACKS:
-        raise ValueError(f"V2 validated only {len(validated)} tracks")
+        reason = f"validated only {len(validated)} tracks"
+        print(
+            "🧪 V2 timing:",
+            f"total={_elapsed_seconds(total_start)}s",
+            "status=failed",
+            f"reason={reason!r}",
+        )
+        raise ValueError(f"V2 {reason}")
 
+    rerank_start = time.monotonic()
     selected = rerank_candidates(validated, limit=10)
+    print(
+        "🧪 V2 timing:",
+        f"rerank={_elapsed_seconds(rerank_start)}s",
+        f"selected={len(selected)}/10",
+    )
     if len(selected) < 10:
-        raise ValueError(f"V2 selected only {len(selected)} tracks")
+        reason = f"selected only {len(selected)} tracks"
+        print(
+            "🧪 V2 timing:",
+            f"total={_elapsed_seconds(total_start)}s",
+            "status=failed",
+            f"reason={reason!r}",
+        )
+        raise ValueError(f"V2 {reason}")
+
+    print("🧪 V2 timing:", f"total={_elapsed_seconds(total_start)}s", "status=success")
 
     return {
         "name": result.get("name", "Butterfly Playlist"),
@@ -169,6 +211,7 @@ def shadow_v2_config_label():
 
 
 async def run_shadow_v2(prompt, search_token):
+    shadow_start = time.monotonic()
     try:
         print("🧪 V2 shadow started:", f"timeout={SHADOW_V2_TIMEOUT_SECONDS}s")
         result = await asyncio.wait_for(
@@ -183,9 +226,13 @@ async def run_shadow_v2(prompt, search_token):
         )
         print("🧪 V2 shadow selected:", _format_shadow_tracks(result.get("matched_songs", [])))
     except asyncio.TimeoutError:
-        print("🧪 V2 shadow failed:", f"timed out after {SHADOW_V2_TIMEOUT_SECONDS}s")
+        print(
+            "🧪 V2 shadow failed:",
+            f"timed out after {SHADOW_V2_TIMEOUT_SECONDS}s",
+            f"elapsed={_elapsed_seconds(shadow_start)}s",
+        )
     except Exception as e:
-        print("🧪 V2 shadow failed:", str(e))
+        print("🧪 V2 shadow failed:", str(e), f"elapsed={_elapsed_seconds(shadow_start)}s")
 
 
 async def generate_playlist(prompt, search_token, engine_version=None):
