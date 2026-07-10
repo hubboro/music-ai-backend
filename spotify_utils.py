@@ -164,7 +164,7 @@ def _format_track_result(track: dict, score: int):
 
 
 def _with_candidate_metadata(match: dict, song: dict):
-    for key in ("bucket", "familiarity", "energy", "reason"):
+    for key in ("bucket", "familiarity", "energy"):
         if song.get(key) is not None:
             match[key] = song.get(key)
     return match
@@ -274,7 +274,6 @@ def _dedupe_matched_tracks(results):
             "bucket": result.get("bucket"),
             "familiarity": result.get("familiarity"),
             "energy": result.get("energy"),
-            "reason": result.get("reason"),
         })
     return matched_songs
 

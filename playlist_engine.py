@@ -7,7 +7,7 @@ from openai_utils import generate_candidate_playlist_data, generate_playlist_dat
 from spotify_utils import match_spotify_tracks
 
 DEFAULT_ENGINE_VERSION = os.getenv("PLAYLIST_ENGINE_VERSION", "v1").strip().lower()
-MIN_V2_VALIDATED_TRACKS = max(10, min(int(os.getenv("PLAYLIST_V2_MIN_VALIDATED_TRACKS", "14")), 24))
+MIN_V2_VALIDATED_TRACKS = max(6, min(int(os.getenv("PLAYLIST_V2_MIN_VALIDATED_TRACKS", "10")), 24))
 SHADOW_V2_TIMEOUT_SECONDS = max(15, min(int(os.getenv("PLAYLIST_V2_SHADOW_TIMEOUT_SECONDS", "45")), 180))
 
 BUCKET_BONUS = {
@@ -172,14 +172,15 @@ async def generate_playlist_v2(prompt, search_token):
         raise ValueError(f"V2 {reason}")
 
     rerank_start = time.monotonic()
-    selected = rerank_candidates(validated, limit=10)
+    target_count = min(10, len(validated))
+    selected = rerank_candidates(validated, limit=target_count)
     print(
         "🧪 V2 timing:",
         f"rerank={_elapsed_seconds(rerank_start)}s",
-        f"selected={len(selected)}/10",
+        f"selected={len(selected)}/{target_count}",
     )
-    if len(selected) < 10:
-        reason = f"selected only {len(selected)} tracks"
+    if len(selected) < target_count:
+        reason = f"selected only {len(selected)}/{target_count} tracks"
         print(
             "🧪 V2 timing:",
             f"total={_elapsed_seconds(total_start)}s",
@@ -197,6 +198,7 @@ async def generate_playlist_v2(prompt, search_token):
         "engine_version": "v2",
         "candidate_count": len(candidates),
         "validated_count": len(validated),
+        "target_count": target_count,
     }
 
 
@@ -221,7 +223,7 @@ async def run_shadow_v2(prompt, search_token):
         print(
             "🧪 V2 shadow generated:",
             result.get("name"),
-            f"{len(result.get('matched_songs', []))}/10 selected",
+            f"{len(result.get('matched_songs', []))}/{result.get('target_count', 10)} selected",
             f"from {result.get('validated_count', 0)} validated",
         )
         print("🧪 V2 shadow selected:", _format_shadow_tracks(result.get("matched_songs", [])))

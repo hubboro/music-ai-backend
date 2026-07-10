@@ -16,7 +16,7 @@ _playlist_cache_lock = Lock()
 PLAYLIST_CACHE_TTL_SECONDS = int(os.getenv("PLAYLIST_CACHE_TTL_SECONDS", "86400"))
 PLAYLIST_CACHE_MAX_ENTRIES = int(os.getenv("PLAYLIST_CACHE_MAX_ENTRIES", "200"))
 MAX_PLAYLIST_REPAIR_ATTEMPTS = max(0, min(int(os.getenv("MAX_PLAYLIST_REPAIR_ATTEMPTS", "1")), 2))
-V2_CANDIDATE_COUNT = max(24, min(int(os.getenv("PLAYLIST_V2_CANDIDATE_COUNT", "40")), 50))
+V2_CANDIDATE_COUNT = max(12, min(int(os.getenv("PLAYLIST_V2_CANDIDATE_COUNT", "24")), 40))
 V2_CANDIDATE_MODEL = os.getenv("PLAYLIST_V2_MODEL", "gpt-4.1-mini")
 V2_CANDIDATE_TIMEOUT_SECONDS = max(10, min(int(os.getenv("PLAYLIST_V2_OPENAI_TIMEOUT_SECONDS", "20")), 60))
 
@@ -102,11 +102,11 @@ REPAIR_SYSTEM_PROMPT = (
 )
 
 V2_CANDIDATE_SYSTEM_PROMPT = (
-    "You are Butterfly's discovery-first music curator. Your job is to create a rich candidate pool "
-    "for a playlist engine, not a final playlist. Think like a trusted music friend: emotionally precise, "
-    "listenable, surprising, and allergic to obvious algorithm-core filler. Include enough familiar anchors "
-    "to orient the listener, but prefer fresh discoveries, adjacent scenes, underplayed tracks, and tasteful "
-    "left-field choices. Avoid fake tracks and avoid karaoke, tribute, cover, sped-up, slowed, live, remix, "
+    "You are Butterfly's real-track-first music curator. Create a compact candidate pool "
+    "for a playlist engine, not a final playlist. Prioritize real, Spotify-searchable artist/title "
+    "pairs over cleverness. Pick songs for emotional fit, not because the title repeats prompt words. "
+    "Include a few familiar anchors and tasteful discoveries, but avoid obscure guesses unless you are "
+    "confident the track exists. Avoid fake tracks, karaoke, tribute, cover, sped-up, slowed, live, remix, "
     "or instrumental versions unless explicitly requested. Return structured JSON only."
 )
 
@@ -159,7 +159,6 @@ def _clean_candidate_data(data):
             "bucket": bucket if bucket in valid_buckets else "discovery",
             "familiarity": familiarity if familiarity in valid_familiarity else "medium",
             "energy": min(max(energy, 0.0), 1.0),
-            "reason": str(candidate.get("reason") or "").strip()[:180],
         })
 
     return {"name": name, "candidates": candidates[:V2_CANDIDATE_COUNT]}
@@ -314,26 +313,28 @@ def generate_candidate_playlist_data(prompt: str):
                 {
                     "role": "user",
                     "content": (
-                        f"Create a discovery-first Spotify candidate pool for this prompt: '{prompt}'\n\n"
+                        f"Create a real-track-first Spotify candidate pool for this prompt: '{prompt}'\n\n"
                         f"Return exactly {V2_CANDIDATE_COUNT} candidates if possible.\n"
                         "Candidate mix:\n"
-                        "- 6-8 anchor tracks: emotionally fitting, somewhat recognizable, never lazy\n"
-                        "- 14-18 discovery tracks: fresh, saveable, not too obscure\n"
-                        "- 6-10 deep cuts: underplayed but accessible\n"
-                        "- 3-5 wildcard tracks: surprising but emotionally defensible\n"
-                        "- 2-4 closer/opener candidates with strong sequencing potential\n\n"
+                        "- 3-5 anchor tracks: emotionally fitting and somewhat recognizable\n"
+                        "- 6-9 discovery tracks: fresh, saveable, and very likely to exist on Spotify\n"
+                        "- 2-4 deep cuts: underplayed but still searchable\n"
+                        "- 1-2 wildcard tracks: surprising but emotionally defensible\n"
+                        "- 1-2 closer/opener candidates with strong sequencing potential\n\n"
                         "Rules:\n"
                         "- Playlist name must be natural, elegant, 2-5 words, and easy to show in the app\n"
                         "- Playlist name must not use jokes, commas, slang filler, apostrophe decades like 90's, or phrases like 'but not only'\n"
-                        "- Prefer interesting discovery over consensus popularity\n"
+                        "- Prefer real Spotify-searchable tracks over obscure or poetic guesses\n"
+                        "- Do not choose songs just because their titles contain words from the user prompt\n"
+                        "- Mood match matters more than title-word match\n"
                         "- Avoid repeating artists\n"
                         "- Avoid tracks that feel overused for generic prompt playlists unless they are perfect\n"
                         "- Use exact artist names and song titles as they appear on Spotify\n"
                         "- Avoid fake, uncertain, karaoke, tribute, cover, sped-up, slowed, live, remix, or instrumental versions\n"
-                        "- Each candidate needs bucket, familiarity, energy from 0 to 1, and a short reason\n\n"
+                        "- Each candidate needs bucket, familiarity, and energy from 0 to 1\n\n"
                         "Return JSON: {\"name\": \"...\", \"candidates\": "
                         "[{\"title\": \"...\", \"artist\": \"...\", \"bucket\": \"anchor|discovery|deep_cut|wildcard|closer\", "
-                        "\"familiarity\": \"known|medium|obscure\", \"energy\": 0.5, \"reason\": \"...\"}, ...]}"
+                        "\"familiarity\": \"known|medium|obscure\", \"energy\": 0.5}, ...]}"
                     )
                 }
             ],
