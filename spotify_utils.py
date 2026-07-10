@@ -5,6 +5,7 @@ import httpx
 import re
 from base64 import b64encode
 from difflib import SequenceMatcher
+from itertools import zip_longest
 from urllib.parse import urlencode
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -62,7 +63,7 @@ def get_spotify_search_token():
         data={"grant_type": "client_credentials"},
         timeout=10,
     )
-    data = response.json()
+    data = _response_json(response, fallback_detail="Spotify search token returned an invalid response")
     if not response.ok or "access_token" not in data:
         raise HTTPException(status_code=503, detail="Spotify search token error")
     return data["access_token"]
@@ -78,7 +79,7 @@ def get_token(code: str):
     response = requests.post(TOKEN_URL, data=payload, timeout=10)
     if not response.ok:
         raise HTTPException(status_code=401, detail="Spotify authorization failed")
-    return response.json()
+    return _response_json(response, fallback_detail="Spotify authorization returned an invalid response")
 
 def refresh_access_token(refresh_token: str):
     payload = {
@@ -88,7 +89,7 @@ def refresh_access_token(refresh_token: str):
         "client_secret": CLIENT_SECRET
     }
     response = requests.post(TOKEN_URL, data=payload, timeout=10)
-    refreshed_token_data = response.json()
+    refreshed_token_data = _response_json(response, fallback_detail="Spotify token refresh returned an invalid response")
 
     if "error" in refreshed_token_data:
         print("❌ Failed to refresh access token:", refreshed_token_data["error"])
@@ -318,6 +319,15 @@ def _spotify_error_message(response, fallback="Spotify request failed"):
         return error
     return fallback
 
+
+def _response_json(response, fallback_detail="Upstream response was not valid JSON"):
+    try:
+        return response.json()
+    except ValueError:
+        body_preview = (response.text or "")[:200]
+        print(f"❌ Spotify returned non-JSON response ({response.status_code}): {body_preview}")
+        raise HTTPException(status_code=502, detail=fallback_detail) from None
+
 def _best_track_match(song: dict, items: list, minimum_score: int):
     scored_items = []
     for item in items:
@@ -362,7 +372,7 @@ async def _spotify_search(client: httpx.AsyncClient, headers: dict, query: str, 
         headers=headers,
         params={"q": query, "type": "track", "limit": limit}
     )
-    data = response.json()
+    data = _response_json(response, fallback_detail="Spotify search returned an invalid response")
     if not response.is_success:
         error = data.get("error") if isinstance(data, dict) else {}
         message = error.get("message") if isinstance(error, dict) else response.text[:200]
@@ -437,7 +447,45 @@ async def _discover_for_query(client: httpx.AsyncClient, headers: dict, query: s
             continue
         if _is_avoided_track(candidate, strategy):
             continue
+        candidate["discovery_query"] = query
         candidates.append(candidate)
+    return candidates
+
+
+def _interleave_candidate_groups(groups, max_candidates):
+    candidates = []
+    seen_tracks = set()
+    seen_artists_in_round = set()
+
+    def append_unique(candidate):
+        track_key = candidate.get("spotify_uri") or _normalize_text(
+            f"{candidate.get('title')} {candidate.get('artist')}"
+        )
+        if not track_key or track_key in seen_tracks:
+            return False
+        seen_tracks.add(track_key)
+        candidates.append(candidate)
+        return len(candidates) >= max_candidates
+
+    for round_items in zip_longest(*groups):
+        deferred = []
+        seen_artists_in_round.clear()
+
+        for candidate in round_items:
+            if not candidate:
+                continue
+            artist = _normalize_text(candidate.get("primary_artist") or candidate.get("artist"))
+            if artist and artist in seen_artists_in_round:
+                deferred.append(candidate)
+                continue
+            seen_artists_in_round.add(artist)
+            if append_unique(candidate):
+                return candidates
+
+        for candidate in deferred:
+            if append_unique(candidate):
+                return candidates
+
     return candidates
 
 
@@ -459,24 +507,8 @@ async def discover_spotify_candidates(strategy: dict, access_token: str, target_
             ]
         )
 
-    candidates = []
-    seen_tracks = set()
-    max_candidates = max(target_count, 10)
-    for group in groups:
-        for candidate in group:
-            track_key = candidate.get("spotify_uri") or _normalize_text(
-                f"{candidate.get('title')} {candidate.get('artist')}"
-            )
-            if not track_key or track_key in seen_tracks:
-                continue
-            seen_tracks.add(track_key)
-            candidates.append(candidate)
-            if len(candidates) >= max_candidates:
-                print(
-                    f"🎧 Spotify discovery found {len(candidates)} candidates "
-                    f"from {len(search_specs)} strategy searches"
-                )
-                return candidates
+    max_candidates = max(target_count * 3, 30)
+    candidates = _interleave_candidate_groups(groups, max_candidates)
 
     print(
         f"🎧 Spotify discovery found {len(candidates)} candidates "
@@ -524,7 +556,7 @@ async def create_playlist_from_tracks(
         headers=headers,
         timeout=10,
     )
-    profile = profile_response.json()
+    profile = _response_json(profile_response, fallback_detail="Spotify profile returned an invalid response")
 
     if "error" in profile:
         raise HTTPException(status_code=401, detail=f"Spotify auth error: {profile['error']['message']}")
@@ -538,7 +570,10 @@ async def create_playlist_from_tracks(
         json={"name": playlist_title, "description": description_clean, "public": public},
         timeout=10,
     )
-    playlist_response = playlist_create_response.json()
+    playlist_response = _response_json(
+        playlist_create_response,
+        fallback_detail="Spotify playlist creation returned an invalid response",
+    )
 
     if not playlist_create_response.ok or "error" in playlist_response:
         message = _spotify_error_message(playlist_create_response, "Could not create Spotify playlist")

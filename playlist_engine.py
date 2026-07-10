@@ -174,6 +174,11 @@ def _select_bucket(candidates, selected, bucket, limit=1):
     return ranked[:limit]
 
 
+def _artist_in_selection(track, selected):
+    artist = _normalize_artist(track.get("primary_artist") or track.get("artist"))
+    return bool(artist and any(_normalize_artist(item.get("primary_artist") or item.get("artist")) == artist for item in selected))
+
+
 def rerank_candidates(candidates, limit=10):
     selected = []
 
@@ -189,6 +194,29 @@ def rerank_candidates(candidates, limit=10):
         if score_candidate(next_track, len(selected), selected) <= 0:
             continue
         selected.append(next_track)
+
+    if len(selected) < limit:
+        fallback_candidates = sorted(
+            [candidate for candidate in candidates if candidate not in selected],
+            key=lambda item: score_candidate(item, len(selected), selected),
+            reverse=True,
+        )
+        for candidate in fallback_candidates:
+            if len(selected) >= limit:
+                break
+            if not candidate.get("spotify_uri"):
+                continue
+            if _artist_in_selection(candidate, selected):
+                continue
+            selected.append(candidate)
+
+    if len(selected) < limit:
+        fallback_candidates = sorted(
+            [candidate for candidate in candidates if candidate not in selected and candidate.get("spotify_uri")],
+            key=lambda item: score_candidate(item, len(selected), selected),
+            reverse=True,
+        )
+        selected.extend(fallback_candidates[: limit - len(selected)])
 
     closer_candidates = [candidate for candidate in selected if _bucket(candidate) == "closer"]
     if closer_candidates:
@@ -275,7 +303,7 @@ async def generate_playlist_v2(prompt, search_token):
         f"rerank={_elapsed_seconds(rerank_start)}s",
         f"selected={len(selected)}/{target_count}",
     )
-    if len(selected) < target_count:
+    if len(selected) < MIN_V2_VALIDATED_TRACKS:
         reason = f"selected only {len(selected)}/{target_count} tracks"
         print(
             "🧪 V2 timing:",

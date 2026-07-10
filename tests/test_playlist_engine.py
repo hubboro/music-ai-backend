@@ -71,6 +71,21 @@ class PlaylistEngineRerankerTests(unittest.TestCase):
         self.assertGreaterEqual(discovery_count, 4)
         self.assertEqual(selected[-1]["bucket"], "closer")
 
+    def test_reranker_fills_from_lopsided_discovery_pool(self):
+        candidates = [
+            candidate("Anchor 1", "Anchor One", "anchor", "known", 0.5),
+            candidate("Anchor 2", "Anchor Two", "anchor", "known", 0.55),
+        ]
+        candidates.extend(
+            candidate(f"Deep {index}", f"Deep Artist {index}", "deep_cut", "obscure", 0.45, score=62)
+            for index in range(1, 12)
+        )
+
+        selected = rerank_candidates(candidates)
+
+        self.assertEqual(len(selected), 10)
+        self.assertEqual(len({track["artist"] for track in selected}), 10)
+
     def test_shadow_track_format_includes_title_artist_and_metadata(self):
         tracks = [candidate("Shadow Song", "Shadow Artist", "deep_cut", "obscure")]
 
