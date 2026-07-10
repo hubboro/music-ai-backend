@@ -163,6 +163,141 @@ def _format_track_result(track: dict, score: int):
     }
 
 
+def _spotify_track_url(track: dict):
+    external_urls = track.get("external_urls") or {}
+    return external_urls.get("spotify")
+
+
+def _track_popularity(track: dict):
+    try:
+        return min(max(int(track.get("popularity", 0)), 0), 100)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _discovery_familiarity(track: dict, discovery_level: str):
+    popularity = _track_popularity(track)
+    if discovery_level == "deep":
+        if popularity >= 70:
+            return "known"
+        if popularity >= 35:
+            return "medium"
+        return "obscure"
+    if discovery_level == "familiar":
+        if popularity >= 45:
+            return "known"
+        if popularity >= 15:
+            return "medium"
+        return "obscure"
+    if popularity >= 65:
+        return "known"
+    if popularity >= 25:
+        return "medium"
+    return "obscure"
+
+
+def _discovery_bucket(source: str, index: int, discovery_level: str):
+    if source == "seed_artist" and index <= 1:
+        return "anchor"
+    if source == "wildcard":
+        return "wildcard"
+    if discovery_level == "deep" or source in {"genre_mood", "scene"}:
+        return "deep_cut"
+    return "discovery"
+
+
+def _discovery_energy(track: dict, energy_curve: str, index: int):
+    if energy_curve == "soft":
+        return 0.35
+    if energy_curve == "rising":
+        return min(0.35 + (index * 0.08), 0.9)
+    if energy_curve == "peak_then_land":
+        return 0.75 if index < 4 else 0.45
+    if energy_curve == "steady":
+        return 0.58
+    return 0.5
+
+
+def _format_discovery_candidate(track: dict, source: str, index: int, strategy: dict):
+    artists = _artist_names(track)
+    discovery_level = strategy.get("discovery_level") or "balanced"
+    energy_curve = strategy.get("energy_curve") or "mixed"
+    popularity = _track_popularity(track)
+
+    return {
+        "uri": track.get("uri"),
+        "spotify_uri": track.get("uri"),
+        "spotify_url": _spotify_track_url(track),
+        "title": track.get("name", ""),
+        "artist": ", ".join(artists),
+        "primary_artist": artists[0] if artists else "",
+        "match_score": 62 + min(popularity * 0.25, 20),
+        "bucket": _discovery_bucket(source, index, discovery_level),
+        "familiarity": _discovery_familiarity(track, discovery_level),
+        "energy": _discovery_energy(track, energy_curve, index),
+        "source": source,
+        "popularity": popularity,
+    }
+
+
+def _strategy_list(strategy: dict, key: str, limit: int):
+    values = strategy.get(key, [])
+    if not isinstance(values, list):
+        return []
+    cleaned = []
+    seen = set()
+    for value in values:
+        text = str(value or "").strip()
+        normalized = _normalize_text(text)
+        if not text or normalized in seen:
+            continue
+        seen.add(normalized)
+        cleaned.append(text)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
+def _strategy_search_specs(strategy: dict):
+    specs = []
+    seed_artists = _strategy_list(strategy, "seed_artists", 6)
+    search_queries = _strategy_list(strategy, "search_queries", 8)
+    genres = _strategy_list(strategy, "genres", 4)
+    moods = _strategy_list(strategy, "moods", 4)
+
+    for artist in seed_artists:
+        specs.append((artist, "seed_artist"))
+    for query in search_queries:
+        specs.append((query, "scene"))
+    for genre in genres:
+        if moods:
+            for mood in moods[:2]:
+                specs.append((f"{genre} {mood}", "genre_mood"))
+        else:
+            specs.append((genre, "genre_mood"))
+
+    seen = set()
+    deduped = []
+    for query, source in specs:
+        normalized = _normalize_text(query)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append((query, source))
+    return deduped[:18]
+
+
+def _is_avoided_track(candidate: dict, strategy: dict):
+    title = _normalize_text(candidate.get("title"))
+    artist = _normalize_text(candidate.get("primary_artist") or candidate.get("artist"))
+    avoid_artists = {_normalize_text(value) for value in _strategy_list(strategy, "avoid_artists", 20)}
+    avoid_tracks = {_normalize_text(value) for value in _strategy_list(strategy, "avoid_tracks", 20)}
+
+    if artist and artist in avoid_artists:
+        return True
+    return bool(title and title in avoid_tracks)
+
+
 def _with_candidate_metadata(match: dict, song: dict):
     for key in ("bucket", "familiarity", "energy"):
         if song.get(key) is not None:
@@ -289,6 +424,65 @@ async def match_spotify_tracks(song_list, access_token):
     matched_tracks = _dedupe_matched_tracks(results)
     print(f"🎧 Spotify matched {len(matched_tracks)}/{len(song_list or [])} tracks")
     return matched_tracks
+
+
+async def _discover_for_query(client: httpx.AsyncClient, headers: dict, query: str, source: str, strategy: dict):
+    items = await _spotify_search(client, headers, query, limit=10)
+    candidates = []
+    for index, item in enumerate(items):
+        if _has_bad_version_marker(item):
+            continue
+        candidate = _format_discovery_candidate(item, source, index, strategy)
+        if not candidate.get("spotify_uri") or not candidate.get("title") or not candidate.get("artist"):
+            continue
+        if _is_avoided_track(candidate, strategy):
+            continue
+        candidates.append(candidate)
+    return candidates
+
+
+async def discover_spotify_candidates(strategy: dict, access_token: str, target_count: int = 24):
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    search_specs = _strategy_search_specs(strategy)
+    if not search_specs:
+        print("🎧 Spotify discovery skipped: strategy had no search specs")
+        return []
+
+    async with httpx.AsyncClient(timeout=SPOTIFY_SEARCH_TIMEOUT_SECONDS) as client:
+        groups = await asyncio.gather(
+            *[
+                _discover_for_query(client, headers, query, source, strategy)
+                for query, source in search_specs
+            ]
+        )
+
+    candidates = []
+    seen_tracks = set()
+    max_candidates = max(target_count, 10)
+    for group in groups:
+        for candidate in group:
+            track_key = candidate.get("spotify_uri") or _normalize_text(
+                f"{candidate.get('title')} {candidate.get('artist')}"
+            )
+            if not track_key or track_key in seen_tracks:
+                continue
+            seen_tracks.add(track_key)
+            candidates.append(candidate)
+            if len(candidates) >= max_candidates:
+                print(
+                    f"🎧 Spotify discovery found {len(candidates)} candidates "
+                    f"from {len(search_specs)} strategy searches"
+                )
+                return candidates
+
+    print(
+        f"🎧 Spotify discovery found {len(candidates)} candidates "
+        f"from {len(search_specs)} strategy searches"
+    )
+    return candidates
 
 async def create_playlist_from_tracks(
     song_list,

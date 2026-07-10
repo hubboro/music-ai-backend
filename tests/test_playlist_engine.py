@@ -1,6 +1,13 @@
 import unittest
 
-from playlist_engine import _format_shadow_tracks, rerank_candidates, score_candidate
+from playlist_engine import (
+    RECENT_ARTISTS,
+    RECENT_TRACKS,
+    _format_shadow_tracks,
+    remember_selected_tracks,
+    rerank_candidates,
+    score_candidate,
+)
 
 
 def candidate(title, artist, bucket="discovery", familiarity="medium", energy=0.5, score=90):
@@ -16,11 +23,28 @@ def candidate(title, artist, bucket="discovery", familiarity="medium", energy=0.
 
 
 class PlaylistEngineRerankerTests(unittest.TestCase):
+    def setUp(self):
+        RECENT_TRACKS.clear()
+        RECENT_ARTISTS.clear()
+
     def test_score_penalizes_duplicate_artist(self):
         selected = [candidate("First", "Same Artist")]
         duplicate = candidate("Second", "Same Artist")
 
         self.assertLess(score_candidate(duplicate, selected=selected), 0)
+
+    def test_score_penalizes_overused_track_and_artist(self):
+        obvious = candidate("Electric Feel", "MGMT", "anchor", "known", 0.6)
+        fresher = candidate("Small Blue Thing", "Suzanne Vega", "anchor", "known", 0.6)
+
+        self.assertLess(score_candidate(obvious), score_candidate(fresher))
+
+    def test_score_penalizes_recently_selected_tracks(self):
+        repeated = candidate("Fresh Song", "Fresh Artist", "discovery", "medium", 0.6)
+        alternative = candidate("Other Fresh Song", "Other Fresh Artist", "discovery", "medium", 0.6)
+        remember_selected_tracks([repeated])
+
+        self.assertLess(score_candidate(repeated), score_candidate(alternative))
 
     def test_reranker_prefers_discovery_mix_and_dedupes_artists(self):
         candidates = [

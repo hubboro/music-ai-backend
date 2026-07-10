@@ -101,13 +101,17 @@ REPAIR_SYSTEM_PROMPT = (
     "for a casual young listener. Return corrected structured JSON only. Do not explain."
 )
 
+V2_STRATEGY_SYSTEM_PROMPT = (
+    "You are Butterfly's playlist strategy planner. Do not choose songs. "
+    "Turn a short user prompt into a practical Spotify discovery strategy that a backend can search. "
+    "Name the emotional palette, adjacent genres, useful seed artists, and search phrases. "
+    "Prefer fresh, specific taste directions over obvious prompt-word matches. "
+    "Avoid defaulting to the same indie-pop canon. Return structured JSON only."
+)
 V2_CANDIDATE_SYSTEM_PROMPT = (
     "You are Butterfly's real-track-first music curator. Create a compact candidate pool "
     "for a playlist engine, not a final playlist. Prioritize real, Spotify-searchable artist/title "
-    "pairs over cleverness. Pick songs for emotional fit, not because the title repeats prompt words. "
-    "Include a few familiar anchors and tasteful discoveries, but avoid obscure guesses unless you are "
-    "confident the track exists. Avoid fake tracks, karaoke, tribute, cover, sped-up, slowed, live, remix, "
-    "or instrumental versions unless explicitly requested. Return structured JSON only."
+    "pairs over cleverness. Return structured JSON only."
 )
 
 def _parse_playlist_json(content: str):
@@ -162,6 +166,45 @@ def _clean_candidate_data(data):
         })
 
     return {"name": name, "candidates": candidates[:V2_CANDIDATE_COUNT]}
+
+
+def _clean_string_list(data, key, limit=8):
+    values = data.get(key, [])
+    if not isinstance(values, list):
+        return []
+
+    cleaned = []
+    seen = set()
+    for value in values:
+        text = str(value or "").strip()
+        normalized = " ".join(text.lower().split())
+        if not text or normalized in seen:
+            continue
+        seen.add(normalized)
+        cleaned.append(text[:80])
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
+def _clean_strategy_data(data):
+    valid_curves = {"soft", "steady", "rising", "peak_then_land", "mixed"}
+    valid_discovery = {"balanced", "deep", "familiar"}
+    name = str(data.get("name") or "Butterfly Playlist").strip()
+    energy_curve = str(data.get("energy_curve") or "mixed").strip().lower()
+    discovery_level = str(data.get("discovery_level") or "balanced").strip().lower()
+
+    return {
+        "name": name[:80] or "Butterfly Playlist",
+        "moods": _clean_string_list(data, "moods", limit=5),
+        "genres": _clean_string_list(data, "genres", limit=6),
+        "seed_artists": _clean_string_list(data, "seed_artists", limit=8),
+        "avoid_artists": _clean_string_list(data, "avoid_artists", limit=10),
+        "avoid_tracks": _clean_string_list(data, "avoid_tracks", limit=10),
+        "search_queries": _clean_string_list(data, "search_queries", limit=8),
+        "energy_curve": energy_curve if energy_curve in valid_curves else "mixed",
+        "discovery_level": discovery_level if discovery_level in valid_discovery else "balanced",
+    }
 
 def _normalize_artist(artist: str):
     return " ".join(artist.lower().replace("&", "and").split())
@@ -347,6 +390,56 @@ def generate_candidate_playlist_data(prompt: str):
     except Exception as e:
         print("❌ Error generating candidate playlist:", e)
         return {"name": "Untitled Playlist", "candidates": []}
+
+
+def generate_playlist_strategy_data(prompt: str):
+    response = (
+        _get_client()
+        .with_options(timeout=V2_CANDIDATE_TIMEOUT_SECONDS, max_retries=0)
+        .chat.completions.create(
+            model=V2_CANDIDATE_MODEL,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": V2_STRATEGY_SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Create a Spotify discovery strategy for this prompt: '{prompt}'\n\n"
+                        "Rules:\n"
+                        "- Do not return song titles\n"
+                        "- Use seed artists as search starting points, not mandatory playlist inclusions\n"
+                        "- Choose seed artists from adjacent scenes, eras, and subgenres, not only the most obvious names\n"
+                        "- Include search_queries that Spotify search can use directly, such as genre, scene, mood, era, or artist-adjacent phrases\n"
+                        "- Include avoid_artists and avoid_tracks only when they are overused, obvious, or likely to make the playlist boring\n"
+                        "- Keep the playlist name natural, elegant, 2-5 words, and easy to show in the app\n"
+                        "- Playlist name must not use jokes, commas, slang filler, apostrophe decades like 90's, or phrases like 'but not only'\n"
+                        "- discovery_level should be balanced unless the prompt clearly asks for very familiar or very obscure music\n\n"
+                        "Return JSON: {"
+                        "\"name\": \"...\", "
+                        "\"moods\": [\"...\"], "
+                        "\"genres\": [\"...\"], "
+                        "\"seed_artists\": [\"...\"], "
+                        "\"avoid_artists\": [\"...\"], "
+                        "\"avoid_tracks\": [\"...\"], "
+                        "\"search_queries\": [\"...\"], "
+                        "\"energy_curve\": \"soft|steady|rising|peak_then_land|mixed\", "
+                        "\"discovery_level\": \"balanced|deep|familiar\""
+                        "}"
+                    )
+                }
+            ],
+        )
+    )
+
+    try:
+        data = json.loads(response.choices[0].message.content)
+        return _clean_strategy_data(data)
+    except Exception as e:
+        print("❌ Error generating playlist strategy:", e)
+        return _clean_strategy_data({"name": "Butterfly Playlist"})
 
 def generate_prompt_placeholders():
     try:

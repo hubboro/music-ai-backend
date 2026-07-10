@@ -1,10 +1,13 @@
 import asyncio
 import os
+import re
 import time
+from collections import deque
 from copy import deepcopy
+from threading import Lock
 
-from openai_utils import generate_candidate_playlist_data, generate_playlist_data
-from spotify_utils import match_spotify_tracks
+from openai_utils import V2_CANDIDATE_COUNT, generate_playlist_data, generate_playlist_strategy_data
+from spotify_utils import discover_spotify_candidates, match_spotify_tracks
 
 DEFAULT_ENGINE_VERSION = os.getenv("PLAYLIST_ENGINE_VERSION", "v1").strip().lower()
 MIN_V2_VALIDATED_TRACKS = max(6, min(int(os.getenv("PLAYLIST_V2_MIN_VALIDATED_TRACKS", "10")), 24))
@@ -29,10 +32,63 @@ TARGET_BUCKET_COUNTS = {
     "wildcard": (1, 2),
     "closer": (1, 2),
 }
+RECENT_TRACKS = deque(maxlen=200)
+RECENT_ARTISTS = deque(maxlen=200)
+RECENT_SELECTIONS_LOCK = Lock()
+
+
+def _normalize_key(value):
+    value = (value or "").lower().replace("&", "and")
+    value = re.sub(r"[^a-z0-9\s]", " ", value)
+    return " ".join(value.split())
+
+
+OVERUSED_ARTISTS = {
+    _normalize_key(artist)
+    for artist in {
+        "Tame Impala",
+        "M83",
+        "MGMT",
+        "Phoebe Bridgers",
+        "Clairo",
+        "Lorde",
+        "Glass Animals",
+        "Florence + The Machine",
+        "Mac DeMarco",
+        "Arctic Monkeys",
+        "The 1975",
+        "Cigarettes After Sex",
+        "Beach House",
+        "Rex Orange County",
+    }
+}
+OVERUSED_TRACKS = {
+    _normalize_key(track)
+    for track in {
+        "Electric Feel",
+        "Midnight City",
+        "The Less I Know The Better",
+        "Motion Sickness",
+        "Dog Days Are Over",
+        "Sunflower",
+        "Goodie Bag",
+        "Sweet Disposition",
+        "505",
+        "Ribs",
+        "Space Song",
+        "Chamber Of Reflection",
+        "Everybody Wants To Rule The World",
+        "Dreams",
+    }
+}
 
 
 def _normalize_artist(value):
-    return " ".join((value or "").lower().replace("&", "and").split())
+    return _normalize_key(value)
+
+
+def _normalize_track(track):
+    return _normalize_key(track.get("title") or track.get("name"))
 
 
 def _bucket(track):
@@ -50,11 +106,49 @@ def _energy(track):
         return 0.5
 
 
+def _recent_count(values, item):
+    if not item:
+        return 0
+    return sum(1 for value in values if value == item)
+
+
+def _overuse_penalty(track):
+    title = _normalize_track(track)
+    artist = _normalize_artist(track.get("primary_artist") or track.get("artist"))
+    bucket = _bucket(track)
+    penalty = 0
+
+    if title in OVERUSED_TRACKS:
+        penalty += 30
+    if artist in OVERUSED_ARTISTS:
+        penalty += 18
+
+    with RECENT_SELECTIONS_LOCK:
+        penalty += min(_recent_count(RECENT_TRACKS, title) * 14, 42)
+        penalty += min(_recent_count(RECENT_ARTISTS, artist) * 8, 32)
+
+    if bucket == "anchor":
+        penalty *= 0.55
+    return penalty
+
+
+def remember_selected_tracks(tracks):
+    with RECENT_SELECTIONS_LOCK:
+        for track in tracks or []:
+            title = _normalize_track(track)
+            artist = _normalize_artist(track.get("primary_artist") or track.get("artist"))
+            if title:
+                RECENT_TRACKS.append(title)
+            if artist:
+                RECENT_ARTISTS.append(artist)
+
+
 def score_candidate(track, position=None, selected=None):
     selected = selected or []
     score = float(track.get("match_score") or 0)
     score += BUCKET_BONUS.get(_bucket(track), 12)
     score += FAMILIARITY_BONUS.get(_familiarity(track), 4)
+    score -= _overuse_penalty(track)
 
     if position == 0 and _energy(track) <= 0.35:
         score += 6
@@ -133,6 +227,7 @@ async def generate_playlist_v1(prompt, search_token):
     result = await asyncio.to_thread(generate_playlist_data, prompt)
     songs = result.get("songs", [])
     matched_songs = await match_spotify_tracks(songs, search_token)
+    remember_selected_tracks(matched_songs)
     return {
         "name": result.get("name", "Butterfly Playlist"),
         "songs": songs,
@@ -145,24 +240,25 @@ async def generate_playlist_v2(prompt, search_token):
     total_start = time.monotonic()
 
     openai_start = time.monotonic()
-    result = await asyncio.to_thread(generate_candidate_playlist_data, prompt)
-    candidates = result.get("candidates", [])
+    result = await asyncio.to_thread(generate_playlist_strategy_data, prompt)
+    search_count = len(result.get("search_queries", [])) + len(result.get("seed_artists", []))
     print(
         "🧪 V2 timing:",
         f"openai={_elapsed_seconds(openai_start)}s",
-        f"candidates={len(candidates)}",
+        f"strategy_searches={search_count}",
+        f"discovery_level={result.get('discovery_level', 'balanced')}",
     )
 
     spotify_start = time.monotonic()
-    validated = await match_spotify_tracks(candidates, search_token)
+    candidates = await discover_spotify_candidates(result, search_token, target_count=V2_CANDIDATE_COUNT)
     print(
         "🧪 V2 timing:",
-        f"spotify={_elapsed_seconds(spotify_start)}s",
-        f"validated={len(validated)}/{len(candidates)}",
+        f"spotify_discovery={_elapsed_seconds(spotify_start)}s",
+        f"candidates={len(candidates)}",
     )
 
-    if len(validated) < MIN_V2_VALIDATED_TRACKS:
-        reason = f"validated only {len(validated)} tracks"
+    if len(candidates) < MIN_V2_VALIDATED_TRACKS:
+        reason = f"discovered only {len(candidates)} tracks"
         print(
             "🧪 V2 timing:",
             f"total={_elapsed_seconds(total_start)}s",
@@ -172,8 +268,8 @@ async def generate_playlist_v2(prompt, search_token):
         raise ValueError(f"V2 {reason}")
 
     rerank_start = time.monotonic()
-    target_count = min(10, len(validated))
-    selected = rerank_candidates(validated, limit=target_count)
+    target_count = min(10, len(candidates))
+    selected = rerank_candidates(candidates, limit=target_count)
     print(
         "🧪 V2 timing:",
         f"rerank={_elapsed_seconds(rerank_start)}s",
@@ -188,6 +284,7 @@ async def generate_playlist_v2(prompt, search_token):
             f"reason={reason!r}",
         )
         raise ValueError(f"V2 {reason}")
+    remember_selected_tracks(selected)
 
     print("🧪 V2 timing:", f"total={_elapsed_seconds(total_start)}s", "status=success")
 
@@ -197,8 +294,9 @@ async def generate_playlist_v2(prompt, search_token):
         "matched_songs": selected,
         "engine_version": "v2",
         "candidate_count": len(candidates),
-        "validated_count": len(validated),
+        "validated_count": len(candidates),
         "target_count": target_count,
+        "strategy": result,
     }
 
 
