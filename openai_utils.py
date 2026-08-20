@@ -91,6 +91,7 @@ PLAYLIST_RULES = (
     "- Use modern indie, pop, alternative, R&B, electronic, hip-hop, and older classics only when they truly fit\n"
     "- Use exact artist names and song titles as they appear on Spotify\n"
     "- Avoid karaoke, tribute, cover, sped-up, slowed, live, remix, or instrumental versions unless the user asks for them\n"
+    "- Do not include Electric Feel by MGMT\n"
     "- For prompts like 'not cringe', avoid children's movie soundtrack singles, wedding party clichés, and corporate party songs\n"
     "- Avoid repeating the same artist more than once unless the prompt strongly calls for it\n"
     "- Give the playlist a natural name, 2-5 words, that evokes the mood without sounding overly poetic\n"
