@@ -16,6 +16,7 @@ _playlist_cache_lock = Lock()
 PLAYLIST_CACHE_TTL_SECONDS = int(os.getenv("PLAYLIST_CACHE_TTL_SECONDS", "86400"))
 PLAYLIST_CACHE_MAX_ENTRIES = int(os.getenv("PLAYLIST_CACHE_MAX_ENTRIES", "200"))
 MAX_PLAYLIST_REPAIR_ATTEMPTS = max(0, min(int(os.getenv("MAX_PLAYLIST_REPAIR_ATTEMPTS", "1")), 2))
+PLAYLIST_MODEL = os.getenv("PLAYLIST_MODEL", "gpt-5.6-luna")
 V2_CANDIDATE_COUNT = max(12, min(int(os.getenv("PLAYLIST_V2_CANDIDATE_COUNT", "24")), 40))
 V2_CANDIDATE_MODEL = os.getenv("PLAYLIST_V2_MODEL", "gpt-4.1-mini")
 V2_CANDIDATE_TIMEOUT_SECONDS = max(10, min(int(os.getenv("PLAYLIST_V2_OPENAI_TIMEOUT_SECONDS", "20")), 60))
@@ -255,7 +256,7 @@ def _repair_playlist_data(prompt: str, data, extra_notes=None):
     issue_text = "\n".join(f"- {note}" for note in notes) if notes else "- General title/artist accuracy and taste check."
 
     response = _get_client().chat.completions.create(
-        model="gpt-4.1-mini",
+        model=PLAYLIST_MODEL,
         response_format={"type": "json_object"},
         messages=[
             {
@@ -313,7 +314,7 @@ def generate_playlist_data(prompt: str):
         return cached
 
     response = _get_client().chat.completions.create(
-        model="gpt-4.1-mini",
+        model=PLAYLIST_MODEL,
         response_format={"type": "json_object"},
         messages=[
             {
